@@ -501,7 +501,9 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
                 print(f"FAIL  {label}: not a valid feed ({exc})  {feed['url']}", file=sys.stderr)
                 continue
             kept = [i for i in items if matches_filters(i, feed) and (i["ts"] is None or i["ts"] >= oldest)]
-            print(f"ok    {label}: {len(items)} items, {len(kept)} kept")
+            dated = [i["ts"] for i in items if i["ts"]]
+            newest = max(dated).astimezone(now.tzinfo).strftime("%a %-d %b %H:%M") if dated else "no dates"
+            print(f"ok    {label}: {len(items)} items, {len(kept)} kept (newest: {newest})")
             stories += [Story(i["title"], i["link"], feed["name"], i["summary"], i["ts"], rank) for i in kept]
         merged = merge_duplicates(stories)
         merged.sort(key=lambda s: s.ts.timestamp() if s.ts else 0, reverse=True)
