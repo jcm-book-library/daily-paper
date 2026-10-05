@@ -15,7 +15,7 @@ timezone = "Australia/Melbourne"
 latitude = -37.81
 longitude = 144.96
 bom_url = "https://www.bom.gov.au/location/australia/victoria/central/bvic_pt042-melbourne"
-max_age_hours = 36        # ignore stories older than this
+max_age_hours = 36        # ignore stories older than this (a section can set its own)
 
 
 # ---------------------------------------------------------------- News (front page)
@@ -31,7 +31,7 @@ limit = 10
 
   [[section.feed]]
   name = "SBS"
-  url = "https://www.sbs.com.au/news/feed"
+  url = "https://www.sbs.com.au/news/topic/latest/feed"   # SBS latest
 
   [[section.feed]]
   name = "Guardian"
@@ -44,6 +44,7 @@ limit = 10
 title = "Rugby League"
 group = "Sport"
 limit = 5
+max_age_hours = 96        # sport news is slower; show up to four days
 
   [[section.feed]]
   name = "Guardian"
@@ -62,6 +63,7 @@ limit = 5
 title = "Premier League"
 group = "Sport"
 limit = 5
+max_age_hours = 96        # sport news is slower; show up to four days
 
   [[section.feed]]
   name = "BBC Sport"
@@ -75,6 +77,7 @@ limit = 5
 title = "Manchester United"
 group = "Sport"
 limit = 5
+max_age_hours = 96        # sport news is slower; show up to four days
 
   [[section.feed]]
   name = "BBC Sport"

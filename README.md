@@ -35,6 +35,22 @@ story, the first-listed outlet's headline is shown.
 If a feed fails, the page shows a red "Couldn't load" line naming it, and the
 Actions log shows the reason (for example a 404 for a wrong address).
 
+Each section only shows stories from the last 36 hours unless it sets its own
+`max_age_hours`. The sport sections use 96 hours (four days), because sport
+feeds go quiet between game days.
+
+### Testing a new source
+
+Before adding a feed, check that the address works and is still being updated:
+
+```sh
+python build.py --check https://www.theguardian.com/sport/afl/rss
+```
+
+This prints how many stories the feed has, the date of the newest one, and its
+first few headlines. A feed whose newest story is weeks old has been abandoned,
+even if it still loads.
+
 ## Running it yourself
 
 Needs Python 3.11 or newer. There are no packages to install.

@@ -32,15 +32,6 @@ jobs:
           python-version: "3.12"
       - name: Run tests
         run: python -m unittest discover -s tests
-      - name: TEMP check SBS candidates
-        run: >
-          python build.py --check
-          https://www.sbs.com.au/news/topic/latest/feed
-          https://www.sbs.com.au/news/topic/australia/feed
-          https://www.sbs.com.au/news/topic/world/feed
-          https://www.sbs.com.au/news/rss
-          https://www.sbs.com.au/news/feed/latest
-          https://www.sbs.com.au/news/collection/top-stories/feed
       - name: Fetch feeds and build the page
         run: python build.py
       - uses: actions/upload-pages-artifact@v3

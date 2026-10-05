@@ -334,7 +334,7 @@ def render_section(section: dict, stories: list[Story], editions: list[Edition],
         chosen = stories_for_edition(stories, ed, section.get("limit", 6))
         hidden = "" if ed is editions[-1] else " hidden"
         if not chosen:
-            body = '<p class="empty">No stories from these sources yet today.</p>'
+            body = '<p class="empty">Nothing new from these sources lately.</p>'
         elif section.get("group") == "front":
             lead = pick_lead(chosen)
             rest = [s for s in chosen if s is not lead]
@@ -470,7 +470,6 @@ def load_config(path: Path) -> dict:
 
 def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict, list[Story]]], dict | None, list[str]]:
     paper = config["paper"]
-    oldest = now - timedelta(hours=paper.get("max_age_hours", 36))
     jobs = {feed["url"] for s in config["section"] for feed in s["feeds"]}
     weather_src = weather_url(paper)
     failures: list[str] = []
@@ -486,6 +485,8 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
 
     sections = []
     for section in config["section"]:
+        hours = section.get("max_age_hours", paper.get("max_age_hours", 36))
+        oldest = now - timedelta(hours=hours)
         stories: list[Story] = []
         for rank, feed in enumerate(section["feeds"]):
             data = results[feed["url"]]
