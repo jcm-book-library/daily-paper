@@ -1,4 +1,4 @@
-# The Daily Paper
+# The Overnight Sentinel
 
 A personal front page in the style of a newspaper. Three times a day it collects
 headlines from trusted news and sport feeds, plus the Melbourne forecast, and
@@ -11,6 +11,10 @@ publishes them as a single page. Every headline links to the original story.
    and merges stories that several outlets ran into one headline with
    "Also covered by" links.
 3. It writes `site/index.html`, which GitHub Pages publishes.
+
+Across the top, **Argus Watch** picks out the day's biggest stories: first the
+ones several outlets are running, then the top of ABC's editorially ranked Top
+Stories feed. Those stories aren't repeated in the News column below.
 
 The page keeps the day's earlier editions: the **Morning / Afternoon / Evening**
 buttons show what the paper looked like at each time, and **NEW** marks stories
@@ -50,6 +54,13 @@ python build.py --check https://www.theguardian.com/sport/afl/rss
 This prints how many stories the feed has, the date of the newest one, and its
 first few headlines. A feed whose newest story is weeks old has been abandoned,
 even if it still loads.
+
+## The emblem
+
+The eye emblem is an original drawing in `templates/emblem.svg`, also used as
+the browser-tab icon. To use a different image, replace that file with another
+SVG. Only use images you have the right to publish (your own, or ones marked
+public domain or CC0), because the page is publicly reachable.
 
 ## Running it yourself
 

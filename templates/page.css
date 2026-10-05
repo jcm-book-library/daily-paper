@@ -39,7 +39,10 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--flag); outline-
 .ear { font-family: var(--f-util); font-size: 13px; border: 1px solid var(--hair); padding: 10px 12px; max-width: 250px; }
 .ear.right { justify-self: end; text-align: right; }
 .ear-label { text-transform: uppercase; letter-spacing: .1em; font-size: 11px; color: var(--muted); }
-.nameplate { font-family: var(--f-mast); font-weight: 400; font-size: clamp(42px, 7.2vw, 84px); line-height: 1; margin: 0; text-align: center; }
+.nameplate-wrap { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.nameplate-wrap .emblem { width: 50px; height: auto; color: var(--ink); }
+.nameplate { font-family: var(--f-mast); font-weight: 400; font-size: clamp(34px, 5.6vw, 70px); line-height: 1; margin: 0;
+  text-align: center; text-wrap: balance; }
 .editions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
 .editions button { font: 500 12px/1 var(--f-util); letter-spacing: .03em; color: var(--ink); background: transparent;
   border: 1px solid var(--hair); padding: 6px 8px; cursor: pointer; }
@@ -59,6 +62,21 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--flag); outline-
   border-bottom: 1px solid var(--rule); padding-bottom: 4px; margin-bottom: 14px; }
 .sect-head h2 { font-family: var(--f-util); font-weight: 600; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; margin: 0; }
 .sect-head .srcs { font-family: var(--f-util); font-size: 12px; color: var(--muted); }
+
+/* ---------- Argus Watch ---------- */
+.watch { margin-top: 18px; border-bottom: 3px double var(--rule); padding-bottom: 16px; }
+.watch-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.watch-head .emblem { width: 30px; height: auto; color: var(--flag); }
+.watch-head h2 { font-family: var(--f-mast); font-weight: 400; font-size: 30px; line-height: 1; margin: 0; color: var(--flag); }
+.watch-head span { font-family: var(--f-util); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.watch-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.watch-item { min-width: 0; padding-inline: 18px; }
+.watch-item:first-child { padding-left: 0; }
+.watch-item:last-child { padding-right: 0; }
+.watch-item + .watch-item { border-left: 1px solid var(--hair); }
+.watch-item .kicker .src { color: var(--flag); }
+.watch-item h3 { font-size: 21px; line-height: 1.18; font-weight: 700; margin: 5px 0 6px; text-wrap: balance; }
+.watch-item p { margin: 0; font-family: var(--f-sum); font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 
 /* ---------- Front ---------- */
 .front { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 32px; margin-top: 22px; }
@@ -136,6 +154,9 @@ a.story:hover h3, a.story:hover h4 { text-decoration: underline; text-decoration
   .front { grid-template-columns: minmax(0,1fr); }
   .weather-col { border-left: 0; padding-left: 0; border-top: 3px double var(--rule); padding-top: 14px; }
   .group-grid { grid-template-columns: minmax(0,1fr); }
+  .watch-grid { grid-template-columns: minmax(0,1fr); }
+  .watch-item { padding-inline: 0; }
+  .watch-item + .watch-item { border-left: 0; border-top: 1px solid var(--hair); padding-top: 12px; margin-top: 12px; }
   .group-grid > section { padding-inline: 0; }
   .group-grid > section:not(:nth-child(3n+1)) { border-left: 0; }
   .group-grid > section + section { border-top: 1px solid var(--rule); padding-top: 14px; }
@@ -143,7 +164,8 @@ a.story:hover h3, a.story:hover h4 { text-decoration: underline; text-decoration
 @media (max-width: 640px) {
   .sheet { padding-inline: 16px; }
   .masthead { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
-  .nameplate { grid-column: 1 / -1; order: -1; }
+  .nameplate-wrap { grid-column: 1 / -1; order: -1; }
+  .nameplate { font-size: clamp(28px, 8.4vw, 40px); }
   .ear { max-width: none; }
   .columns { columns: 1; }
   .dateline { font-size: 11px; }
