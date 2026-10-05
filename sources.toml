@@ -9,13 +9,19 @@
 #   exclude = ["live blog", "quiz"]     drop stories mentioning any of these
 
 [paper]
-name = "The Yarra Ledger"
+name = "The Overnight Sentinel"
 location = "Melbourne"
 timezone = "Australia/Melbourne"
 latitude = -37.81
 longitude = 144.96
 bom_url = "https://www.bom.gov.au/location/australia/victoria/central/bvic_pt042-melbourne"
 max_age_hours = 36        # ignore stories older than this (a section can set its own)
+
+# Argus Watch: a band across the top of the front page for the day's biggest stories.
+# It takes stories several outlets are running first, then tops up with the first
+# news feed's highest-ranked stories (ABC Top Stories lists them in editorial order).
+watch_title = "Argus Watch"
+watch_limit = 3
 
 
 # ---------------------------------------------------------------- News (front page)

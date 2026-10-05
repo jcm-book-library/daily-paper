@@ -40,6 +40,7 @@ class Story:
     summary: str
     ts: datetime | None
     rank: int  # position of the feed in its section; lower wins when merging
+    position: int = 0  # the story's place in its own feed, which for ranked feeds is editorial order
     also: list[tuple[str, str]] = field(default_factory=list)  # (source, link)
 
 
@@ -323,15 +324,43 @@ def render_story(story: Story, ed: Edition, tz: ZoneInfo, lead: bool = False) ->
             f"{kicker}<{tag}>{esc(story.title)}</{tag}>{summary}</a>{also}</div>")
 
 
+def pick_watch(stories: list[Story], limit: int) -> list[Story]:
+    """The day's biggest stories: those most outlets are running, topped up with the
+    first-listed feed's highest-ranked stories."""
+    shared = sorted((s for s in stories if s.also),
+                    key=lambda s: (len(s.also), s.ts.timestamp() if s.ts else 0), reverse=True)
+    ranked = sorted((s for s in stories if s.rank == 0 and not s.also), key=lambda s: s.position)
+    return (shared + ranked)[:limit]
+
+
+def render_watch_story(story: Story, ed: Edition, tz: ZoneInfo) -> str:
+    outlets = len(story.also) + 1
+    label = f"{outlets} outlets" if outlets > 1 else f"{story.source} top story"
+    stamp = f"<span>{fmt_time(story.ts, tz)}</span>" if story.ts else ""
+    new = '<span class="new">NEW</span>' if is_new(story, ed) else ""
+    summary = f"<p>{esc(story.summary)}</p>" if story.summary else ""
+    also = ""
+    if story.also:
+        links = [(story.source, story.link), *story.also]
+        also = '<div class="also">Read at ' + " · ".join(f'<a href="{esc(l)}">{esc(src)}</a>' for src, l in links) + "</div>"
+    return (f'<div class="watch-item"><a class="story" href="{esc(story.link)}">'
+            f'<span class="kicker"><span class="src">{esc(label)}</span>{stamp}{new}</span>'
+            f"<h3>{esc(story.title)}</h3>{summary}</a>{also}</div>")
+
+
 def pick_lead(stories: list[Story]) -> Story:
     """The story most outlets are running; ties go to the top-priority source, then the newest."""
     return max(stories, key=lambda s: (len(s.also), -s.rank, s.ts.timestamp() if s.ts else 0))
 
 
-def render_section(section: dict, stories: list[Story], editions: list[Edition], tz: ZoneInfo) -> str:
+def render_section(section: dict, stories: list[Story], editions: list[Edition], tz: ZoneInfo,
+                   skip: dict[str, set[int]] | None = None) -> str:
+    """One block per edition. `skip` maps an edition name to ids of stories shown elsewhere."""
     blocks = []
     for ed in editions:
-        chosen = stories_for_edition(stories, ed, section.get("limit", 6))
+        hide = (skip or {}).get(ed.name, set())
+        visible = [s for s in stories if id(s) not in hide]
+        chosen = stories_for_edition(visible, ed, section.get("limit", 6))
         hidden = "" if ed is editions[-1] else " hidden"
         if not chosen:
             body = '<p class="empty">Nothing new from these sources lately.</p>'
@@ -389,11 +418,21 @@ def render_weather(w: dict | None, paper: dict) -> tuple[str, str]:
     return ear, panel
 
 
+def favicon_uri(emblem: str) -> str:
+    """The emblem in ink on a paper-coloured tile, as a data: URI for the browser tab."""
+    inner = emblem.split(">", 1)[1].rsplit("</svg>", 1)[0].replace("currentColor", "#17191B")
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -11 64 64">'
+           '<rect x="0" y="-11" width="64" height="64" rx="12" fill="#ECEDE8"/>'
+           f'<g fill="none" stroke="#17191B" stroke-width="2.4" stroke-linecap="round">{inner}</g></svg>')
+    return "data:image/svg+xml," + urllib.parse.quote(re.sub(r"\s+", " ", svg))
+
+
 def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather: dict | None,
                 failures: list[str], now: datetime) -> str:
     paper = config["paper"]
     tz = ZoneInfo(paper["timezone"])
     editions = editions_for(now)
+    emblem = (ROOT / "templates" / "emblem.svg").read_text().strip()
     current = editions[-1]
 
     def edition_line(ed: Edition) -> str:
@@ -417,12 +456,23 @@ def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather:
     else:
         next_line = f"Next edition: {time(next_slot).strftime('%-I:%M%p').lower()}"
 
-    front, groups = "", {}
+    front, watch, groups = "", "", {}
+    watch_title = paper.get("watch_title", "Top stories")
     for section, stories in sections:
         if section.get("group") == "front" and not front:
+            skip, blocks = {}, []
+            for ed in editions:
+                top = pick_watch(stories_for_edition(stories, ed, len(stories)), paper.get("watch_limit", 3))
+                skip[ed.name] = {id(s) for s in top}
+                hidden = "" if ed is current else " hidden"
+                blocks.append(f'<div class="feed watch-grid" data-ed="{ed.name}"{hidden}>'
+                              + "".join(render_watch_story(s, ed, tz) for s in top) + "</div>")
+            watch = (f'<section class="watch" aria-label="{esc(watch_title)}"><div class="watch-head">{emblem}'
+                     f'<h2>{esc(watch_title)}</h2><span>The stories that matter most right now</span></div>'
+                     + "".join(blocks) + "</section>")
             front = (f'<section aria-label="{esc(section["title"])}"><div class="sect-head"><h2>{esc(section["title"])}</h2>'
                      f'<span class="srcs">{source_names(section)}</span></div>'
-                     f'{render_section(section, stories, editions, tz)}</section>')
+                     f'{render_section(section, stories, editions, tz, skip)}</section>')
         else:
             groups.setdefault(section.get("group", "More"), []).append((section, stories))
 
@@ -456,6 +506,9 @@ def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather:
         status=status,
         schedule=", ".join(time(h).strftime("%-I%p").lower() for _, h in EDITIONS),
         css=(ROOT / "templates" / "page.css").read_text(),
+        emblem=emblem,
+        watch=watch,
+        favicon=favicon_uri(emblem),
     )
 
 
@@ -501,11 +554,12 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
                 failures.append(label)
                 print(f"FAIL  {label}: not a valid feed ({exc})  {feed['url']}", file=sys.stderr)
                 continue
-            kept = [i for i in items if matches_filters(i, feed) and (i["ts"] is None or i["ts"] >= oldest)]
+            kept = [(pos, i) for pos, i in enumerate(items)
+                    if matches_filters(i, feed) and (i["ts"] is None or i["ts"] >= oldest)]
             dated = [i["ts"] for i in items if i["ts"]]
             newest = max(dated).astimezone(now.tzinfo).strftime("%a %-d %b %H:%M") if dated else "no dates"
             print(f"ok    {label}: {len(items)} items, {len(kept)} kept (newest: {newest})")
-            stories += [Story(i["title"], i["link"], feed["name"], i["summary"], i["ts"], rank) for i in kept]
+            stories += [Story(i["title"], i["link"], feed["name"], i["summary"], i["ts"], rank, pos) for pos, i in kept]
         merged = merge_duplicates(stories)
         merged.sort(key=lambda s: s.ts.timestamp() if s.ts else 0, reverse=True)
         print(f"      {section['title']}: {len(stories)} stories -> {len(merged)} after merging duplicates")

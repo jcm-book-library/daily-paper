@@ -98,6 +98,25 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(merged[0].also, [])
 
 
+class WatchTests(unittest.TestCase):
+    def test_shared_stories_first_then_top_ranked_from_first_feed(self):
+        shared = story("Budget update flags slower growth as global trade cools")
+        shared.also = [("SBS", "https://example.org/sbs")]
+        busier = story("Storm warning issued for Melbourne and Geelong tonight", minutes_ago=300)
+        busier.also = [("SBS", "x"), ("Guardian", "y")]
+        abc_second = story("Second-ranked ABC story about the train network", rank=0)
+        abc_second.position = 1
+        abc_first = story("Top-ranked ABC story about the hospital funding deal", rank=0, minutes_ago=600)
+        abc_first.position = 0
+        guardian = story("A Guardian story that nobody else ran this morning", source="Guardian", rank=2)
+        picked = build.pick_watch([guardian, abc_second, shared, abc_first, busier], 4)
+        self.assertEqual(picked, [busier, shared, abc_first, abc_second])
+
+    def test_limit(self):
+        stories = [story(f"Story number {n} about something", rank=0) for n in range(5)]
+        self.assertEqual(len(build.pick_watch(stories, 3)), 3)
+
+
 class EditionTests(unittest.TestCase):
     def test_evening(self):
         eds = build.editions_for(datetime(2026, 10, 5, 18, 5, tzinfo=MEL))
@@ -151,7 +170,14 @@ class RenderTests(unittest.TestCase):
 
         sections, w, failures = build.collect(config, now, fetcher=fake_fetch)
         page = build.render_page(config, sections, w, failures, now)
-        self.assertIn("The Yarra Ledger", page)
+        self.assertIn("<title>The Overnight Sentinel</title>", page)
+        self.assertIn('rel="icon" href="data:image/svg+xml,', page)
+        self.assertIn("Argus Watch", page)
+        # a story in the Argus Watch band isn't repeated in the News column below it
+        evening_news = page.split('aria-label="News"')[1].split('data-ed="Evening"')[1].split("</section>")[0]
+        evening_watch = page.split('class="watch"')[1].split('data-ed="Evening"')[1].split("</section>")[0]
+        self.assertIn("Budget update flags slower growth", evening_watch)
+        self.assertNotIn("Budget update flags slower growth", evening_news)
         self.assertIn("Evening edition · updated 6:05pm", page)
         self.assertIn("Couldn't load this edition: SBS (News)", page)
         self.assertIn("Full forecast &amp; warnings at BOM", page)

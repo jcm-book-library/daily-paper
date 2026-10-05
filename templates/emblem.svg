@@ -1,0 +1,6 @@
+<svg class="emblem" viewBox="0 0 64 42" role="img" aria-label="An open eye keeping watch" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke-width="1.7"><line x1="14.8" y1="20.3" x2="12.8" y2="15.7"/><line x1="20.5" y1="18.2" x2="18.5" y2="11.5"/><line x1="26.2" y1="16.9" x2="25.4" y2="11.0"/><line x1="32.0" y1="16.5" x2="32.0" y2="8.5"/><line x1="37.8" y1="16.9" x2="38.6" y2="11.0"/><line x1="43.5" y1="18.2" x2="45.5" y2="11.5"/><line x1="49.2" y1="20.3" x2="51.2" y2="15.7"/></g>
+  <path d="M5 29 Q32 9 59 29 Q32 49 5 29 Z" stroke-width="2"/>
+  <circle cx="32" cy="29" r="7.5" stroke-width="1.6"/>
+  <circle cx="32" cy="29" r="3.4" fill="currentColor" stroke="none"/>
+</svg>
