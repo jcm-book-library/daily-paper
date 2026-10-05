@@ -60,6 +60,23 @@ document.querySelectorAll(".editions button[data-edition]").forEach(function (bu
     document.getElementById("edition-line").textContent = button.getAttribute("data-line");
   });
 });
+
+// Sport pages: one sport at a time, remembering the last one you opened on this device.
+function showTab(slug) {
+  var found = false;
+  document.querySelectorAll(".tabs button[data-tab]").forEach(function (b) {
+    var on = b.getAttribute("data-tab") === slug;
+    found = found || on;
+    b.setAttribute("aria-selected", String(on));
+  });
+  if (!found) return;
+  document.querySelectorAll(".tab-panel[data-panel]").forEach(function (p) { p.hidden = p.getAttribute("data-panel") !== slug; });
+  try { localStorage.setItem("sentinel-sport", slug); } catch (e) {}
+}
+document.querySelectorAll(".tabs button[data-tab]").forEach(function (b) {
+  b.addEventListener("click", function () { showTab(b.getAttribute("data-tab")); });
+});
+try { var saved = localStorage.getItem("sentinel-sport"); if (saved) showTab(saved); } catch (e) {}
 </script>
 </body>
 </html>

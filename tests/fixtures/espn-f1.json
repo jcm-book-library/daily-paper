@@ -1,0 +1,10 @@
+{"leagues": [{"calendar": [
+  {"label": "Gulf Air Bahrain Grand Prix in Malaysia", "startDate": "2026-10-02T04:30Z"},
+  {"label": "Singapore Airlines Singapore Grand Prix", "startDate": "2026-10-09T09:30Z"},
+  {"label": "United States Grand Prix", "startDate": "2026-10-23T17:30Z"}]}],
+ "events": [{"name": "Gulf Air Bahrain Grand Prix in Malaysia", "status": {"type": {"state": "post"}},
+  "competitions": [
+   {"type": {"abbreviation": "FP1"}, "competitors": [{"order": 1, "athlete": {"displayName": "Lando Norris"}}]},
+   {"type": {"abbreviation": "Race"}, "competitors": [
+     {"order": 3, "athlete": {"displayName": "Isack Hadjar"}}, {"order": 1, "athlete": {"displayName": "Max Verstappen"}},
+     {"order": 2, "athlete": {"displayName": "George Russell"}}, {"order": 4, "athlete": {"displayName": "Charles Leclerc"}}]}]}]}

@@ -26,6 +26,8 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 USER_AGENT = "Mozilla/5.0 (compatible; daily-paper/1.0; +https://github.com/jcm-book-library/daily-paper)"
+# BOM's warnings feed turns away anything that doesn't identify as a web browser.
+BROWSER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 EDITIONS = [("Morning", 6), ("Afternoon", 12), ("Evening", 18)]
 # A run this close before an edition's hour counts as that edition (cron runs at :50).
 EDITION_GRACE = timedelta(minutes=30)
@@ -46,9 +48,9 @@ class Story:
 
 # ---------------------------------------------------------------- fetching
 
-def fetch(url: str, timeout: int = 20) -> bytes:
+def fetch(url: str, timeout: int = 20, browser: bool = False) -> bytes:
     req = urllib.request.Request(url, headers={
-        "User-Agent": USER_AGENT,
+        "User-Agent": BROWSER_AGENT if browser else USER_AGENT,
         "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, application/json;q=0.9, */*;q=0.8",
     })
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -133,11 +135,38 @@ def parse_feed(data: bytes) -> list[dict]:
             "link": link,
             "summary": make_summary(_child_text(el, "description", "summary", "content"), title),
             "ts": parse_date(_child_text(el, "pubDate", "published", "updated", "date")),
+            "categories": [(c.text or c.get("term") or "").strip() for c in el if _local(c.tag) == "category"],
         })
     return items
 
 
+def parse_espn_news(data: bytes) -> list[dict]:
+    """ESPN's news data (their RSS feeds are empty): a JSON list of articles."""
+    items = []
+    for article in json.loads(data).get("articles", []):
+        if article.get("type") == "Media":  # video clips
+            continue
+        title = clean_text(article.get("headline", ""))
+        link = (article.get("links", {}).get("web") or {}).get("href", "")
+        if not title or not link.startswith(("http://", "https://")):
+            continue
+        items.append({
+            "title": title,
+            "link": link,
+            "summary": make_summary(article.get("description", ""), title),
+            "ts": parse_date(article.get("published", "")),
+            "categories": [],
+        })
+    return items
+
+
+def parse_items(data: bytes, feed: dict) -> list[dict]:
+    return parse_espn_news(data) if feed.get("format") == "espn" else parse_feed(data)
+
+
 def matches_filters(item: dict, feed: dict) -> bool:
+    if feed.get("category") and feed["category"].lower() not in (c.lower() for c in item.get("categories", [])):
+        return False
     text = f"{item['title']} {item['summary']}".lower()
     include = [w.lower() for w in feed.get("include", [])]
     exclude = [w.lower() for w in feed.get("exclude", [])]
@@ -301,9 +330,139 @@ def summarise_weather(raw: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------- scores, tables and alerts
+#
+# Each [[scores]] entry in sources.toml names a `kind`. The parsers below turn that
+# source's data into one of two plain shapes the page knows how to draw:
+#   {"type": "table", "headers": [...], "rows": [[...], ...], "highlight": row index or None}
+#   {"type": "list", "groups": [(heading, [(text, detail, link), ...]), ...]}
+
+def _espn_stat(entry: dict, name: str) -> str:
+    for stat in entry.get("stats", []):
+        if stat.get("name") == name:
+            value = stat.get("displayValue")
+            return str(value if value not in (None, "") else stat.get("value", "")).strip()
+    return ""
+
+
+def _who(entry: dict) -> dict:
+    return entry.get("team") or entry.get("athlete") or {}
+
+
+def table_espn(data: bytes, cfg: dict, now: datetime) -> dict:
+    groups = json.loads(data).get("children") or []
+    entries = groups[cfg.get("group", 0)]["standings"]["entries"]
+    entries = sorted(entries, key=lambda e: int(r) if (r := _espn_stat(e, "rank")).isdigit() else 999)
+    columns = cfg.get("columns", [["Pts", "points"]])
+    top = cfg.get("rows", 10)
+    rows, highlight = [], None
+    for pos, entry in enumerate(entries, 1):
+        name = _who(entry).get("displayName", "?")
+        row = [str(pos), name, *(_espn_stat(entry, key) for _, key in columns)]
+        mine = bool(cfg.get("highlight")) and cfg["highlight"].lower() in name.lower()
+        if pos <= top:
+            rows.append(row)
+        elif mine:  # keep your team visible even when it's outside the top rows
+            rows += [["…", "", *([""] * len(columns))], row]
+        else:
+            continue
+        if mine:
+            highlight = len(rows) - 1
+    return {"type": "table", "headers": ["", cfg.get("name_header", "Team"), *(label for label, _ in columns)],
+            "rows": rows, "highlight": highlight}
+
+
+def table_squiggle(data: bytes, cfg: dict, now: datetime) -> dict:
+    teams = sorted(json.loads(data)["standings"], key=lambda t: t["rank"])
+    rows = [[str(t["rank"]), t["name"], str(t["played"]), f'{t["percentage"]:.1f}', str(t["pts"])]
+            for t in teams[: cfg.get("rows", 18)]]
+    return {"type": "table", "headers": ["", "Team", "P", "%", "Pts"], "rows": rows, "highlight": None}
+
+
+def _local_when(iso: str, tz: ZoneInfo) -> str:
+    dt = parse_date(iso)
+    return dt.astimezone(tz).strftime("%a %-d %b, %-I:%M%p").replace("AM", "am").replace("PM", "pm") if dt else ""
+
+
+def scores_espn(data: bytes, cfg: dict, now: datetime) -> dict:
+    """Results and upcoming games from an ESPN scoreboard."""
+    tz = now.tzinfo
+    results, coming = [], []
+    for event in sorted(json.loads(data).get("events", []), key=lambda e: e.get("date", "")):
+        comp = event["competitions"][0]
+        sides = {c.get("homeAway"): c for c in comp.get("competitors", [])}
+        home, away = sides.get("home", {}), sides.get("away", {})
+        hn, an = _who(home).get("shortDisplayName") or _who(home).get("displayName", "?"), \
+            _who(away).get("shortDisplayName") or _who(away).get("displayName", "?")
+        state = event.get("status", {}).get("type", {}).get("state")
+        link = next((l.get("href") for l in event.get("links", []) if l.get("href", "").startswith("http")), "")
+        if state == "post":
+            results.append((f"{hn} {home.get('score', '')} – {away.get('score', '')} {an}", "Final", link))
+        elif state == "in":
+            results.append((f"{hn} {home.get('score', '')} – {away.get('score', '')} {an}", "Live", link))
+        else:
+            coming.append((f"{hn} v {an}", _local_when(event.get("date", ""), tz), link))
+    limit = cfg.get("rows", 6)
+    groups = []
+    if results:
+        groups.append(("Results", results[-limit:]))
+    if coming:
+        groups.append(("Coming up", coming[:limit]))
+    return {"type": "list", "groups": groups}
+
+
+def race_espn(data: bytes, cfg: dict, now: datetime) -> dict:
+    """The latest Grand Prix podium and the next race, from ESPN's F1 scoreboard."""
+    d = json.loads(data)
+    groups = []
+    for event in d.get("events", [])[:1]:
+        comps = event.get("competitions", [])
+        race = next((c for c in comps if (c.get("type") or {}).get("abbreviation", "").lower() in ("race", "r")),
+                    comps[-1] if comps else {})
+        done = event.get("status", {}).get("type", {}).get("state") == "post"
+        if done and race.get("competitors"):
+            podium = sorted(race["competitors"], key=lambda c: c.get("order", 99))[:3]
+            groups.append((event.get("name", "Last race"),
+                           [(f'{c.get("order")}. {_who(c).get("displayName", "?")}', "", "") for c in podium]))
+    calendar = (d.get("leagues") or [{}])[0].get("calendar") or []
+    upcoming = [c for c in calendar if isinstance(c, dict) and (parse_date(c.get("startDate", "")) or now) > now]
+    if upcoming:
+        nxt = upcoming[0]
+        groups.append(("Next race", [(nxt.get("label", ""), _local_when(nxt.get("startDate", ""), now.tzinfo), "")]))
+    return {"type": "list", "groups": groups}
+
+
+def cricket_live(data: bytes, cfg: dict, now: datetime) -> dict:
+    """Cricinfo's live scores feed covers every match worldwide; keep the teams you follow."""
+    teams = [t.lower() for t in cfg.get("include", [])]
+    lines = [(i["title"].replace(" *", "*"), "", i["link"]) for i in parse_feed(data)
+             if not teams or any(t in i["title"].lower() for t in teams)]
+    return {"type": "list", "groups": [("Live and recent", lines[: cfg.get("rows", 8)])] if lines else []}
+
+
+SCORE_KINDS = {
+    "espn_table": table_espn, "squiggle_table": table_squiggle,
+    "espn_scores": scores_espn, "espn_race": race_espn, "cricket_live": cricket_live,
+}
+
+
+def parse_alerts(data: bytes, cfg: dict) -> list[dict]:
+    """Current BOM warnings that matter here: the right kind of warning, for the right area."""
+    kinds = [w.lower() for w in cfg.get("include", [])]
+    places = [w.lower() for w in cfg.get("require", [])]
+    out = []
+    for item in parse_feed(data):
+        title = re.sub(r"^\d{2}/\d{2}:\d{2} \w+ ", "", item["title"])  # drop BOM's "05/16:15 EDT " prefix
+        text = f"{title} {item['summary']}".lower()
+        if (not kinds or any(k in text for k in kinds)) and (not places or any(p in text for p in places)):
+            out.append({"title": title, "link": item["link"]})
+    return out
+
+
 # ---------------------------------------------------------------- rendering
 
 esc = html.escape
+NEW_TAB = 'target="_blank" rel="noopener"'  # stories open in a new tab so the paper stays open
 
 
 def fmt_time(dt: datetime, tz: ZoneInfo) -> str:
@@ -318,9 +477,9 @@ def render_story(story: Story, ed: Edition, tz: ZoneInfo, lead: bool = False) ->
     summary = f"<p>{esc(story.summary)}</p>" if story.summary else ""
     also = ""
     if story.also:
-        links = " · ".join(f'<a href="{esc(link)}">{esc(src)}</a>' for src, link in story.also)
+        links = " · ".join(f'<a href="{esc(link)}" {NEW_TAB}>{esc(src)}</a>' for src, link in story.also)
         also = f'<div class="also">Also covered by {links}</div>'
-    return (f'<div class="{"lead" if lead else "item"}"><a class="story" href="{esc(story.link)}">'
+    return (f'<div class="{"lead" if lead else "item"}"><a class="story" href="{esc(story.link)}" {NEW_TAB}>'
             f"{kicker}<{tag}>{esc(story.title)}</{tag}>{summary}</a>{also}</div>")
 
 
@@ -342,8 +501,8 @@ def render_watch_story(story: Story, ed: Edition, tz: ZoneInfo) -> str:
     also = ""
     if story.also:
         links = [(story.source, story.link), *story.also]
-        also = '<div class="also">Read at ' + " · ".join(f'<a href="{esc(l)}">{esc(src)}</a>' for src, l in links) + "</div>"
-    return (f'<div class="watch-item"><a class="story" href="{esc(story.link)}">'
+        also = '<div class="also">Read at ' + " · ".join(f'<a href="{esc(l)}" {NEW_TAB}>{esc(src)}</a>' for src, l in links) + "</div>"
+    return (f'<div class="watch-item"><a class="story" href="{esc(story.link)}" {NEW_TAB}>'
             f'<span class="kicker"><span class="src">{esc(label)}</span>{stamp}{new}</span>'
             f"<h3>{esc(story.title)}</h3>{summary}</a>{also}</div>")
 
@@ -387,7 +546,7 @@ def render_weather(w: dict | None, paper: dict) -> tuple[str, str]:
     bom = esc(paper["bom_url"])
     if not w:
         ear = '<div class="ear-label">Weather</div><div>Forecast unavailable</div>'
-        panel = f'<p class="empty">The forecast couldn\'t be loaded this edition.</p><div class="wx-links"><a href="{bom}">Forecast &amp; warnings at BOM</a></div>'
+        panel = f'<p class="empty">The forecast couldn\'t be loaded this edition.</p><div class="wx-links"><a href="{bom}" {NEW_TAB}>Forecast &amp; warnings at BOM</a></div>'
         return ear, panel
     t = w["today"]
     ear = (f'<div class="ear-label">{esc(paper["location"])} now</div>'
@@ -413,9 +572,69 @@ def render_weather(w: dict | None, paper: dict) -> tuple[str, str]:
         f'<div class="facts"><div>Rain chance<b>{t["rain"]}%</b></div><div>Wind<b>{esc(w["wind"])}</b></div>'
         f'<div>UV<b>{esc(w["uv"])}</b></div></div>'
         f'<table class="week" aria-label="Seven-day forecast"><tbody>{rows}</tbody></table>{note}'
-        f'<div class="wx-links"><a href="{bom}">Full forecast &amp; warnings at BOM</a><span>Forecast data: Open-Meteo</span></div>'
+        f'<div class="wx-links"><a href="{bom}" {NEW_TAB}>Full forecast &amp; warnings at BOM</a><span>Forecast data: Open-Meteo</span></div>'
     )
     return ear, panel
+
+
+def render_box(cfg: dict, data: dict) -> str:
+    """One scores or table box."""
+    title = f'<h4>{esc(cfg["title"])}</h4>'
+    more = (f'<a class="more" href="{esc(cfg["more_url"])}" {NEW_TAB}>{esc(cfg.get("more_label", "More"))}</a>'
+            if cfg.get("more_url") else "")
+    if data["type"] == "table" and data["rows"]:
+        head = "".join(f"<th>{esc(h)}</th>" for h in data["headers"])
+        body = "".join(
+            f'<tr{" class=mine" if i == data["highlight"] else ""}>' + "".join(f"<td>{esc(c)}</td>" for c in row) + "</tr>"
+            for i, row in enumerate(data["rows"]))
+        return f'<div class="box">{title}<table class="ladder"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>{more}</div>'
+    if data["type"] == "list" and data["groups"]:
+        parts = []
+        for heading, lines in data["groups"]:
+            items = "".join(
+                "<li>" + (f'<a href="{esc(link)}" {NEW_TAB}>{esc(text)}</a>' if link else f"<span>{esc(text)}</span>")
+                + (f'<span class="when">{esc(detail)}</span>' if detail else "") + "</li>"
+                for text, detail, link in lines)
+            parts.append(f"<h5>{esc(heading)}</h5><ul class=\"results\">{items}</ul>")
+        return f'<div class="box">{title}{"".join(parts)}{more}</div>'
+    return f'<div class="box">{title}<p class="empty">Nothing to show right now.</p>{more}</div>'
+
+
+def render_alerts(alerts: list[dict]) -> str:
+    if not alerts:
+        return ""
+    items = "".join(f'<li><span class="alert-tag">BOM warning</span><a href="{esc(a["link"])}" {NEW_TAB}>{esc(a["title"])}</a></li>'
+                    for a in alerts)
+    return f'<ul class="alerts">{items}</ul>'
+
+
+def render_group(name: str, members: list[tuple[dict, list[Story]]], boxes: list[tuple[dict, dict]],
+                 editions: list[Edition], tz: ZoneInfo) -> str:
+    """A group of sections. When sections name a `tab`, each tab becomes its own page with a button."""
+    def columns(items: list[tuple[dict, list[Story]]]) -> str:
+        return "".join(
+            f'<section aria-label="{esc(s["title"])}"><h3 class="sub">{esc(s["title"])}</h3>'
+            f'<p class="sub-srcs">{source_names(s)}</p>{render_section(s, st, editions, tz)}</section>'
+            for s, st in items)
+
+    head = f'<div class="sect-head"><h2>{esc(name)}</h2></div>'
+    tabs = list(dict.fromkeys(s.get("tab") for s, _ in members if s.get("tab")))
+    if not tabs:
+        return f'<div class="group">{head}<div class="group-grid">{columns(members)}</div></div>'
+    buttons, panels = [], []
+    for i, tab in enumerate(tabs):
+        slug = re.sub(r"[^a-z0-9]+", "-", tab.lower()).strip("-")
+        items = [m for m in members if m[0].get("tab") == tab]
+        tab_boxes = "".join(render_box(cfg, data) for cfg, data in boxes if cfg.get("tab") == tab)
+        scores = (f'<div class="scores"><h3 class="scores-head">Scores &amp; tables</h3>'
+                  f'<div class="scores-grid">{tab_boxes}</div></div>') if tab_boxes else ""
+        buttons.append(f'<button type="button" role="tab" id="tab-{slug}" data-tab="{slug}" '
+                       f'aria-selected="{"true" if i == 0 else "false"}">{esc(tab)}</button>')
+        panels.append(f'<div class="tab-panel" role="tabpanel" data-panel="{slug}" aria-labelledby="tab-{slug}"'
+                      f'{"" if i == 0 else " hidden"}><div class="group-grid" style="--cols:{len(items)}">'
+                      f'{columns(items)}</div>{scores}</div>')
+    return (f'<div class="group tabbed">{head}<div class="tabs" role="tablist" aria-label="{esc(name)}">'
+            f'{"".join(buttons)}</div>{"".join(panels)}</div>')
 
 
 def favicon_uri(emblem: str) -> str:
@@ -428,7 +647,8 @@ def favicon_uri(emblem: str) -> str:
 
 
 def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather: dict | None,
-                failures: list[str], now: datetime) -> str:
+                failures: list[str], now: datetime, extras: dict | None = None) -> str:
+    extras = extras or {}
     paper = config["paper"]
     tz = ZoneInfo(paper["timezone"])
     editions = editions_for(now)
@@ -469,22 +689,15 @@ def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather:
                               + "".join(render_watch_story(s, ed, tz) for s in top) + "</div>")
             watch = (f'<section class="watch" aria-label="{esc(watch_title)}"><div class="watch-head">{emblem}'
                      f'<h2>{esc(watch_title)}</h2><span>The stories that matter most right now</span></div>'
-                     + "".join(blocks) + "</section>")
+                     + render_alerts(extras.get("alerts", [])) + "".join(blocks) + "</section>")
             front = (f'<section aria-label="{esc(section["title"])}"><div class="sect-head"><h2>{esc(section["title"])}</h2>'
                      f'<span class="srcs">{source_names(section)}</span></div>'
                      f'{render_section(section, stories, editions, tz, skip)}</section>')
         else:
             groups.setdefault(section.get("group", "More"), []).append((section, stories))
 
-    group_html = []
-    for name, members in groups.items():
-        cols = "".join(
-            f'<section aria-label="{esc(s["title"])}"><h3 class="sub">{esc(s["title"])}</h3>'
-            f'<p class="sub-srcs">{source_names(s)}</p>{render_section(s, st, editions, tz)}</section>'
-            for s, st in members
-        )
-        group_html.append(f'<div class="group"><div class="sect-head"><h2>{esc(name)}</h2></div>'
-                          f'<div class="group-grid">{cols}</div></div>')
+    group_html = [render_group(name, members, extras.get("scores", []), editions, tz)
+                  for name, members in groups.items()]
 
     ear, panel = render_weather(weather, paper)
     status = ""
@@ -521,14 +734,20 @@ def load_config(path: Path) -> dict:
     return config
 
 
-def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict, list[Story]]], dict | None, list[str]]:
+def collect(config: dict, now: datetime, fetcher=fetch):
+    """Fetch everything in parallel. Returns (sections, weather, failures, extras), where
+    extras holds the parsed scores boxes and any current weather alerts."""
     paper = config["paper"]
+    alerts_cfg = config.get("alerts")
     jobs = {feed["url"] for s in config["section"] for feed in s["feeds"]}
+    jobs |= {box["url"] for box in config.get("scores", [])}
     weather_src = weather_url(paper)
     failures: list[str] = []
     results: dict[str, bytes | Exception] = {}
     with cf.ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(fetcher, url): url for url in [*jobs, weather_src]}
+        if alerts_cfg:
+            futures[pool.submit(fetcher, alerts_cfg["url"], browser=True)] = "alerts:" + alerts_cfg["url"]
         for fut in cf.as_completed(futures):
             url = futures[fut]
             try:
@@ -549,8 +768,8 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
                 print(f"FAIL  {label}: {data}  {feed['url']}", file=sys.stderr)
                 continue
             try:
-                items = parse_feed(data)
-            except ET.ParseError as exc:
+                items = parse_items(data, feed)
+            except (ET.ParseError, ValueError) as exc:
                 failures.append(label)
                 print(f"FAIL  {label}: not a valid feed ({exc})  {feed['url']}", file=sys.stderr)
                 continue
@@ -577,14 +796,39 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             failures.append("weather")
             print(f"FAIL  weather: unexpected response ({exc})", file=sys.stderr)
-    return sections, weather, failures
+
+    scores = []
+    for box in config.get("scores", []):
+        raw = results[box["url"]]
+        try:
+            if isinstance(raw, Exception):
+                raise raw
+            scores.append((box, SCORE_KINDS[box["kind"]](raw, box, now)))
+            print(f"ok    {box['title']} ({box['tab']})")
+        except Exception as exc:  # noqa: BLE001 - unofficial data can change shape; drop just this box
+            failures.append(box["title"])
+            print(f"FAIL  {box['title']}: {exc}  {box['url']}", file=sys.stderr)
+
+    alerts = []
+    if alerts_cfg:
+        raw = results["alerts:" + alerts_cfg["url"]]
+        try:
+            if isinstance(raw, Exception):
+                raise raw
+            alerts = parse_alerts(raw, alerts_cfg)
+            print(f"ok    weather warnings: {len(alerts)} current for this area")
+        except Exception as exc:  # noqa: BLE001
+            failures.append("weather warnings")
+            print(f"FAIL  weather warnings: {exc}", file=sys.stderr)
+    return sections, weather, failures, {"scores": scores, "alerts": alerts}
 
 
 def check_feeds(urls: list[str]) -> int:
     """Report whether each address is a working feed and how fresh it is."""
     for url in urls:
         try:
-            items = parse_feed(fetch(url))
+            data = fetch(url)
+            items = parse_espn_news(data) if data.lstrip()[:1] == b"{" else parse_feed(data)
         except Exception as exc:  # noqa: BLE001
             print(f"BROKEN  {url}\n        {exc}")
             continue
@@ -607,12 +851,12 @@ def main() -> int:
 
     config = load_config(args.config)
     now = datetime.now(ZoneInfo(config["paper"]["timezone"]))
-    sections, weather, failures = collect(config, now)
+    sections, weather, failures, extras = collect(config, now)
     if not any(stories for _, stories in sections):
         print("No stories loaded from any feed; not overwriting the page.", file=sys.stderr)
         return 1
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(render_page(config, sections, weather, failures, now))
+    args.out.write_text(render_page(config, sections, weather, failures, now, extras))
     print(f"Wrote {args.out}")
     return 0
 

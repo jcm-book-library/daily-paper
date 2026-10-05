@@ -117,6 +117,55 @@ class WatchTests(unittest.TestCase):
         self.assertEqual(len(build.pick_watch(stories, 3)), 3)
 
 
+class SourceFormatTests(unittest.TestCase):
+    def test_espn_news_skips_video_clips(self):
+        items = build.parse_espn_news((FIXTURES / "espn-news.json").read_bytes())
+        self.assertEqual([i["title"] for i in items], [
+            "Lions' Campbell won't discuss dismissing DC after loss",
+            "Panthers beat the Lions behind McMillan and Young"])
+        self.assertEqual(items[0]["ts"], datetime(2026, 10, 5, 6, 35, 35, tzinfo=timezone.utc))
+
+    def test_category_filter(self):
+        feed = {"category": "Sport"}
+        self.assertTrue(build.matches_filters({"title": "x", "summary": "", "categories": ["Sport"]}, feed))
+        self.assertFalse(build.matches_filters({"title": "x", "summary": "", "categories": ["News"]}, feed))
+
+
+class ScoresTests(unittest.TestCase):
+    now = datetime(2026, 10, 5, 18, 5, tzinfo=MEL)
+
+    def test_table_sorted_by_rank_and_keeps_your_team_in_view(self):
+        cfg = {"rows": 2, "highlight": "Manchester United",
+               "columns": [["P", "gamesPlayed"], ["GD", "pointDifferential"], ["Pts", "points"]]}
+        t = build.table_espn((FIXTURES / "espn-standings.json").read_bytes(), cfg, self.now)
+        self.assertEqual([r[1] for r in t["rows"]], ["Manchester City", "Liverpool", "", "Manchester United"])
+        self.assertEqual(t["rows"][3], ["4", "Manchester United", "5", "0", "7"])
+        self.assertEqual(t["highlight"], 3)
+
+    def test_results_and_fixtures_in_melbourne_time(self):
+        out = build.scores_espn((FIXTURES / "espn-scoreboard.json").read_bytes(), {}, self.now)
+        results, coming = out["groups"]
+        self.assertEqual(results, ("Results", [("Man United 2 – 2 Brighton", "Final", "https://www.espn.com/soccer/match/_/gameId/9")]))
+        self.assertEqual(coming, ("Coming up", [("Arsenal v Leeds United", "Sat 10 Oct, 10:30pm", "")]))
+
+    def test_f1_podium_and_next_race(self):
+        out = build.race_espn((FIXTURES / "espn-f1.json").read_bytes(), {}, self.now)
+        podium, nxt = out["groups"]
+        self.assertEqual([t for t, _, _ in podium[1]], ["1. Max Verstappen", "2. George Russell", "3. Isack Hadjar"])
+        self.assertEqual(nxt[1][0][0], "Singapore Airlines Singapore Grand Prix")
+
+    def test_cricket_keeps_only_followed_teams(self):
+        out = build.cricket_live((FIXTURES / "cricket-live.xml").read_bytes(), {"include": ["Australia", "West Indies"]}, self.now)
+        self.assertEqual([t for t, _, _ in out["groups"][0][1]],
+                         ["India Under-19s v Australia Under-19s 66/6*", "Zimbabwe Women v West Indies Women"])
+
+    def test_bom_alerts_only_local_and_serious(self):
+        cfg = {"include": ["severe thunderstorm", "severe weather"], "require": ["central", "melbourne"]}
+        alerts = build.parse_alerts((FIXTURES / "bom-warnings.xml").read_bytes(), cfg)
+        self.assertEqual([a["title"] for a in alerts],
+                         ["Severe Thunderstorm Warning for people in Central and North Central Forecast Districts"])
+
+
 class EditionTests(unittest.TestCase):
     def test_evening(self):
         eds = build.editions_for(datetime(2026, 10, 5, 18, 5, tzinfo=MEL))
@@ -161,15 +210,30 @@ class RenderTests(unittest.TestCase):
         abc = (FIXTURES / "sample-feed.xml").read_bytes()
         weather = (FIXTURES / "open-meteo.json").read_bytes()
 
-        def fake_fetch(url):
+        def fake_fetch(url, browser=False):
             if "open-meteo" in url:
                 return weather
             if "sbs" in url:
                 raise OSError("HTTP Error 404")
+            if "bom.gov.au" in url:
+                self.assertTrue(browser)  # BOM refuses requests that don't look like a browser
+                return (FIXTURES / "bom-warnings.xml").read_bytes()
+            if "squiggle" in url:
+                raise OSError("HTTP Error 503")  # one broken scores source mustn't break the page
+            if "/news" in url and "espn" in url:
+                return (FIXTURES / "espn-news.json").read_bytes()
+            if "standings" in url:
+                return (FIXTURES / "espn-standings.json").read_bytes()
+            if "racing/f1/scoreboard" in url:
+                return (FIXTURES / "espn-f1.json").read_bytes()
+            if "scoreboard" in url:
+                return (FIXTURES / "espn-scoreboard.json").read_bytes()
+            if "livescores" in url:
+                return (FIXTURES / "cricket-live.xml").read_bytes()
             return abc
 
-        sections, w, failures = build.collect(config, now, fetcher=fake_fetch)
-        page = build.render_page(config, sections, w, failures, now)
+        sections, w, failures, extras = build.collect(config, now, fetcher=fake_fetch)
+        page = build.render_page(config, sections, w, failures, now, extras)
         self.assertIn("<title>The Overnight Sentinel</title>", page)
         self.assertIn('rel="icon" href="data:image/svg+xml,', page)
         self.assertIn("Argus Watch", page)
@@ -179,7 +243,14 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Budget update flags slower growth", evening_watch)
         self.assertNotIn("Budget update flags slower growth", evening_news)
         self.assertIn("Evening edition · updated 6:05pm", page)
-        self.assertIn("Couldn't load this edition: SBS (News)", page)
+        self.assertIn("Couldn't load this edition: SBS (News); AFL ladder", page)
+        # every story and source link opens in a new tab
+        self.assertNotRegex(page, r'<a (?![^>]*target="_blank")[^>]*href="http')
+        # one page per sport, Football first and the rest hidden until chosen
+        self.assertIn('data-tab="football" aria-selected="true"', page)
+        self.assertIn('data-panel="nfl" aria-labelledby="tab-nfl" hidden', page)
+        self.assertIn("Premier League table", page)
+        self.assertIn("Severe Thunderstorm Warning for people in Central", page)
         self.assertIn("Full forecast &amp; warnings at BOM", page)
         self.assertNotIn("$", page.split("<script>")[0])  # every placeholder filled
 

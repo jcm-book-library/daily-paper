@@ -1,0 +1,7 @@
+{"events": [
+ {"name": "Leeds United at Arsenal", "date": "2026-10-10T11:30Z", "status": {"type": {"state": "pre"}},
+  "competitions": [{"competitors": [{"homeAway": "home", "score": "0", "team": {"displayName": "Arsenal"}}, {"homeAway": "away", "score": "0", "team": {"displayName": "Leeds United"}}]}]},
+ {"name": "Brighton at Manchester United", "date": "2026-10-04T13:00Z", "status": {"type": {"state": "post"}},
+  "links": [{"href": "https://www.espn.com/soccer/match/_/gameId/9"}],
+  "competitions": [{"competitors": [{"homeAway": "home", "score": "2", "team": {"displayName": "Manchester United", "shortDisplayName": "Man United"}}, {"homeAway": "away", "score": "2", "team": {"displayName": "Brighton"}}]}]}
+]}

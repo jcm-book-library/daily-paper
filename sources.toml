@@ -1,12 +1,17 @@
-# The Daily Paper: sources and settings.
+# The Overnight Sentinel: sources and settings.
 #
 # To add a source, copy a [[section.feed]] block under the section it belongs to.
 # Feeds are listed in priority order: when two outlets run the same story, the
 # first one listed becomes the headline and the others appear as "Also covered by".
 #
-# Optional per-feed filters (case-insensitive, matched against headline + summary):
-#   include = ["NRL", "rugby league"]   keep only stories mentioning one of these
+# Optional per-feed settings:
+#   include = ["NRL", "rugby league"]   keep only stories mentioning one of these (headline + summary)
 #   exclude = ["live blog", "quiz"]     drop stories mentioning any of these
+#   category = "Sport"                  keep only stories the feed itself tags with this category
+#   format = "espn"                     the source is ESPN's news data rather than an RSS feed
+#
+# Matching is case-insensitive and finds words inside longer words, so pick
+# filter words that can't appear by accident ("test" would also match "latest").
 
 [paper]
 name = "The Overnight Sentinel"
@@ -23,13 +28,21 @@ max_age_hours = 36        # ignore stories older than this (a section can set it
 watch_title = "Argus Watch"
 watch_limit = 3
 
+# BOM warnings shown at the top of Argus Watch. Only warnings of these kinds
+# (include) for these areas (require) appear, so flood warnings for distant
+# rivers and marine forecasts stay out.
+[alerts]
+url = "https://www.bom.gov.au/fwo/IDZ00059.warnings_vic.xml"
+include = ["severe thunderstorm", "severe weather", "fire weather", "total fire ban", "extreme heat", "heatwave"]
+require = ["central", "melbourne", "port phillip"]
 
-# ---------------------------------------------------------------- News (front page)
+
+# ================================================================ News (front page)
 
 [[section]]
 title = "News"
 group = "front"
-limit = 10
+limit = 12
 
   [[section.feed]]
   name = "ABC"
@@ -37,24 +50,73 @@ limit = 10
 
   [[section.feed]]
   name = "SBS"
-  url = "https://www.sbs.com.au/news/topic/latest/feed"   # SBS latest
+  url = "https://www.sbs.com.au/news/topic/latest/feed"
 
   [[section.feed]]
   name = "Guardian"
   url = "https://www.theguardian.com/world/rss"
 
+  [[section.feed]]
+  name = "BBC"
+  url = "https://feeds.bbci.co.uk/news/world/rss.xml"
 
-# ---------------------------------------------------------------- Sport
+  [[section.feed]]
+  name = "Al Jazeera"
+  url = "https://www.aljazeera.com/xml/rss/all.xml"
+  category = "News"
+
+
+# ================================================================ Sport
+#
+# Sections with group = "Sport" share the Sport heading. Each `tab` becomes its own
+# page with a button; sections with the same tab appear side by side on that page.
+# Sport news is slower than general news, so these sections look back four days.
+
+# ---------------------------------------------------------------- Football
+
+[[section]]
+title = "Football"
+group = "Sport"
+tab = "Football"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/football/rss.xml"
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news"
+  format = "espn"
+
+  [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/football/rss"
+
+[[section]]
+title = "Manchester United"
+group = "Sport"
+tab = "Football"
+limit = 5
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/football/teams/manchester-united/rss.xml"
+
+  [[section.feed]]
+  name = "Manchester Evening News"
+  url = "https://www.manchestereveningnews.co.uk/all-about/manchester-united-fc?service=rss"
+
+# ---------------------------------------------------------------- Rugby League
 
 [[section]]
 title = "Rugby League"
 group = "Sport"
-limit = 5
-max_age_hours = 96        # sport news is slower; show up to four days
-
-  [[section.feed]]
-  name = "Guardian"
-  url = "https://www.theguardian.com/sport/nrl/rss"
+tab = "Rugby League"
+limit = 6
+max_age_hours = 96
 
   [[section.feed]]
   name = "ABC Sport"
@@ -62,33 +124,232 @@ max_age_hours = 96        # sport news is slower; show up to four days
   include = ["NRL", "rugby league", "State of Origin", "Kangaroos", "Pacific Championships"]
 
   [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/sport/nrl/rss"
+
+  [[section.feed]]
+  name = "Zero Tackle"
+  url = "https://www.zerotackle.com/feed/"
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/rugby-league/3/news"
+  format = "espn"
+
+  [[section.feed]]
   name = "BBC Sport"
   url = "https://feeds.bbci.co.uk/sport/rugby-league/rss.xml"
 
+# ---------------------------------------------------------------- AFL
+
 [[section]]
+title = "AFL"
+group = "Sport"
+tab = "AFL"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "ABC Sport"
+  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
+  include = ["AFL", "Brownlow"]
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/australian-football/afl/news"
+  format = "espn"
+
+# ---------------------------------------------------------------- Cricket
+
+[[section]]
+title = "Cricket"
+group = "Sport"
+tab = "Cricket"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "ABC Sport"
+  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
+  include = ["cricket", "Ashes", "Big Bash", "Sheffield Shield", "Test match", "T20"]
+
+  [[section.feed]]
+  name = "Cricinfo"
+  url = "https://www.espncricinfo.com/rss/content/story/feeds/0.xml"
+
+# ---------------------------------------------------------------- Formula 1
+
+[[section]]
+title = "Formula 1"
+group = "Sport"
+tab = "Formula 1"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/formula1/rss.xml"
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/racing/f1/news"
+  format = "espn"
+
+  [[section.feed]]
+  name = "Motorsport.com"
+  url = "https://www.motorsport.com/rss/f1/news/"
+
+# ---------------------------------------------------------------- Motorsport
+
+[[section]]
+title = "Motorsport"
+group = "Sport"
+tab = "Motorsport"
+limit = 6
+max_age_hours = 168       # IndyCar news is sparse out of season; look back a week
+
+  [[section.feed]]
+  name = "Speedcafe"
+  url = "https://speedcafe.com/feed/"
+
+  [[section.feed]]
+  name = "Motorsport.com"
+  url = "https://www.motorsport.com/rss/all/news/"
+
+  [[section.feed]]
+  name = "ESPN IndyCar"
+  url = "https://site.api.espn.com/apis/site/v2/sports/racing/irl/news"
+  format = "espn"
+
+# ---------------------------------------------------------------- NFL
+
+[[section]]
+title = "NFL"
+group = "Sport"
+tab = "NFL"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news"
+  format = "espn"
+
+# ---------------------------------------------------------------- World sport
+
+[[section]]
+title = "World Sport"
+group = "Sport"
+tab = "World"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "Al Jazeera"
+  url = "https://www.aljazeera.com/xml/rss/all.xml"
+  category = "Sport"
+
+
+# ================================================================ Scores & tables
+#
+# Each box appears on the sport page named by `tab`. ESPN's data isn't an official
+# public service and could change; if a box breaks, only that box disappears.
+# kind = espn_table | espn_scores | espn_race | squiggle_table | cricket_live
+
+[[scores]]
+tab = "Football"
+title = "Premier League table"
+kind = "espn_table"
+url = "https://site.api.espn.com/apis/v2/sports/soccer/eng.1/standings"
+rows = 8
+highlight = "Manchester United"
+columns = [["P", "gamesPlayed"], ["GD", "pointDifferential"], ["Pts", "points"]]
+more_url = "https://www.bbc.com/sport/football/premier-league/table"
+more_label = "Full table"
+
+[[scores]]
+tab = "Football"
 title = "Premier League"
-group = "Sport"
-limit = 5
-max_age_hours = 96        # sport news is slower; show up to four days
+kind = "espn_scores"
+url = "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard"
+rows = 6
 
-  [[section.feed]]
-  name = "BBC Sport"
-  url = "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml"
+[[scores]]
+tab = "Rugby League"
+title = "NRL ladder"
+kind = "espn_table"
+url = "https://site.api.espn.com/apis/v2/sports/rugby-league/3/standings"
+rows = 8
+columns = [["P", "gamesPlayed"], ["PD", "pointsDifference"], ["Pts", "points"]]
+more_url = "https://www.nrl.com/ladder/"
+more_label = "Full ladder"
 
-  [[section.feed]]
-  name = "Guardian"
-  url = "https://www.theguardian.com/football/premierleague/rss"
+[[scores]]
+tab = "Rugby League"
+title = "NRL"
+kind = "espn_scores"
+url = "https://site.api.espn.com/apis/site/v2/sports/rugby-league/3/scoreboard"
+rows = 4
 
-[[section]]
-title = "Manchester United"
-group = "Sport"
-limit = 5
-max_age_hours = 96        # sport news is slower; show up to four days
+[[scores]]
+tab = "AFL"
+title = "AFL ladder"
+kind = "squiggle_table"
+url = "https://api.squiggle.com.au/?q=standings"
+rows = 8
+more_url = "https://www.afl.com.au/ladder"
+more_label = "Full ladder"
 
-  [[section.feed]]
-  name = "BBC Sport"
-  url = "https://feeds.bbci.co.uk/sport/football/teams/manchester-united/rss.xml"
+[[scores]]
+tab = "AFL"
+title = "AFL"
+kind = "espn_scores"
+url = "https://site.api.espn.com/apis/site/v2/sports/australian-football/afl/scoreboard"
+rows = 4
 
-  [[section.feed]]
-  name = "Guardian"
-  url = "https://www.theguardian.com/football/manchester-united/rss"
+[[scores]]
+tab = "Cricket"
+title = "Scores"
+kind = "cricket_live"
+url = "https://static.espncricinfo.com/rss/livescores.xml"
+rows = 8
+include = ["Australia", "England", "India", "New Zealand", "South Africa", "Pakistan", "Sri Lanka",
+           "West Indies", "Bangladesh", "Afghanistan", "Ireland", "Zimbabwe",
+           "Victoria", "New South Wales", "Queensland", "Tasmania", "Western Australia", "South Australia",
+           "Melbourne Stars", "Melbourne Renegades", "Sydney Sixers", "Sydney Thunder", "Brisbane Heat",
+           "Adelaide Strikers", "Perth Scorchers", "Hobart Hurricanes"]
+more_url = "https://www.espncricinfo.com/live-cricket-score"
+more_label = "All live scores"
+
+[[scores]]
+tab = "Formula 1"
+title = "Race weekend"
+kind = "espn_race"
+url = "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard"
+
+[[scores]]
+tab = "Formula 1"
+title = "Drivers' championship"
+kind = "espn_table"
+url = "https://site.api.espn.com/apis/v2/sports/racing/f1/standings"
+group = 0
+rows = 10
+name_header = "Driver"
+columns = [["Pts", "championshipPts"]]
+
+[[scores]]
+tab = "Formula 1"
+title = "Constructors' championship"
+kind = "espn_table"
+url = "https://site.api.espn.com/apis/v2/sports/racing/f1/standings"
+group = 1
+rows = 6
+name_header = "Team"
+columns = [["Pts", "points"]]
+
+[[scores]]
+tab = "NFL"
+title = "NFL this week"
+kind = "espn_scores"
+url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+rows = 8
