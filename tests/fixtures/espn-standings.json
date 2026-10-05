@@ -1,0 +1,6 @@
+{"children": [{"name": "2026-27 English Premier League", "standings": {"entries": [
+ {"team": {"displayName": "Liverpool"}, "stats": [{"name": "rank", "displayValue": "2"}, {"name": "gamesPlayed", "displayValue": "5"}, {"name": "pointDifferential", "displayValue": "+6"}, {"name": "points", "displayValue": "13"}]},
+ {"team": {"displayName": "Manchester City"}, "stats": [{"name": "rank", "displayValue": "1"}, {"name": "gamesPlayed", "displayValue": "5"}, {"name": "pointDifferential", "displayValue": "+8"}, {"name": "points", "displayValue": "15"}]},
+ {"team": {"displayName": "Arsenal"}, "stats": [{"name": "rank", "displayValue": "3"}, {"name": "gamesPlayed", "displayValue": "5"}, {"name": "pointDifferential", "displayValue": "+5"}, {"name": "points", "displayValue": "12"}]},
+ {"team": {"displayName": "Manchester United"}, "stats": [{"name": "rank", "displayValue": "11"}, {"name": "gamesPlayed", "displayValue": "5"}, {"name": "pointDifferential", "displayValue": "0"}, {"name": "points", "displayValue": "7"}]}
+]}}]}

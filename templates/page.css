@@ -139,6 +139,47 @@ a.story:hover h3, a.story:hover h4 { text-decoration: underline; text-decoration
 .sub-srcs { font-family: var(--f-util); font-size: 11.5px; color: var(--muted); margin: 2px 0 12px; }
 .group .item h4 { font-size: 17px; }
 
+/* ---------- Sport pages ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 18px; }
+.tabs button { font: 500 13px/1 var(--f-util); letter-spacing: .03em; color: var(--ink); background: transparent;
+  border: 1px solid var(--hair); padding: 8px 12px; cursor: pointer; }
+.tabs button:hover { border-color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.tabbed .group-grid { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); }
+.tabbed .group-grid > section { padding-inline: 18px; border-left: 0; }
+.tabbed .group-grid > section:first-child { padding-left: 0; }
+.tabbed .group-grid > section:last-child { padding-right: 0; }
+.tabbed .group-grid > section + section { border-left: 1px solid var(--hair); }
+
+.scores { margin-top: 22px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.scores-head { font-family: var(--f-util); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 12px; }
+.scores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 28px; align-items: start; }
+.box { min-width: 0; }
+.box h4 { font-family: var(--f-body); font-size: 18px; font-style: italic; font-weight: 700; margin: 0 0 8px; }
+.box h5 { font-family: var(--f-util); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 10px 0 2px; }
+.ladder { width: 100%; border-collapse: collapse; font-family: var(--f-util); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ladder th { text-align: right; font-weight: 500; font-size: 11px; letter-spacing: .06em; color: var(--muted);
+  padding: 4px 0 4px 8px; border-bottom: 1px solid var(--rule); }
+.ladder td { text-align: right; padding: 5px 0 5px 8px; border-bottom: 1px solid var(--hair); }
+.ladder th:nth-child(2), .ladder td:nth-child(2) { text-align: left; }
+.ladder th:first-child, .ladder td:first-child { width: 22px; text-align: left; padding-left: 0; color: var(--muted); }
+.ladder tr.mine td { font-weight: 600; background: var(--tint); }
+.ladder tr.mine td:nth-child(2) { box-shadow: inset 3px 0 0 var(--flag); padding-left: 8px; }
+.results { list-style: none; margin: 0; padding: 0; font-family: var(--f-util); font-size: 13px; font-variant-numeric: tabular-nums; }
+.results li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.results li > :first-child { min-width: 0; }
+.results a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.results .when { color: var(--muted); font-size: 12px; text-align: right; flex-shrink: 0; }
+.box .more { display: inline-block; margin-top: 8px; font-family: var(--f-util); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Weather warnings (in Argus Watch) ---------- */
+.alerts { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
+.alerts li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; border-left: 3px solid var(--flag);
+  background: var(--tint); padding: 8px 12px; font-family: var(--f-util); font-size: 14px; font-weight: 500; }
+.alert-tag { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--flag); }
+.alerts a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
 .empty { font-family: var(--f-util); font-size: 13px; color: var(--muted); }
 .status { font-family: var(--f-util); font-size: 12px; color: var(--flag); margin: 6px 0 0; }
 .editions button:disabled { opacity: .4; cursor: default; }
@@ -160,6 +201,9 @@ a.story:hover h3, a.story:hover h4 { text-decoration: underline; text-decoration
   .group-grid > section { padding-inline: 0; }
   .group-grid > section:not(:nth-child(3n+1)) { border-left: 0; }
   .group-grid > section + section { border-top: 1px solid var(--rule); padding-top: 14px; }
+  .tabbed .group-grid { grid-template-columns: minmax(0, 1fr); }
+  .tabbed .group-grid > section { padding-inline: 0; }
+  .tabbed .group-grid > section + section { border-left: 0; }
 }
 @media (max-width: 640px) {
   .sheet { padding-inline: 16px; }

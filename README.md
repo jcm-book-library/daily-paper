@@ -16,6 +16,17 @@ Across the top, **Argus Watch** picks out the day's biggest stories: first the
 ones several outlets are running, then the top of ABC's editorially ranked Top
 Stories feed. Those stories aren't repeated in the News column below.
 
+**BOM weather warnings** for Melbourne (severe storms, fire danger, extreme heat)
+appear at the top of Argus Watch while they're current.
+
+**Sport** has a page for each code: Football, Rugby League, AFL, Cricket,
+Formula 1, Motorsport, NFL and World. Tap a button to switch; the page remembers
+the last one you opened. Each sport page shows its headlines plus a
+**Scores & tables** area (league tables, results, fixtures, F1 standings and
+live cricket scores).
+
+Every link opens in a new tab, so the paper stays open behind it.
+
 The page keeps the day's earlier editions: the **Morning / Afternoon / Evening**
 buttons show what the paper looked like at each time, and **NEW** marks stories
 that arrived since the previous edition.
@@ -32,7 +43,8 @@ Everything lives in `sources.toml`. To add a feed, copy a `[[section.feed]]` blo
 ```
 
 To add a new sport or topic, copy a whole `[[section]]` block. Sections with
-`group = "Sport"` appear together under the Sport heading, three to a row.
+`group = "Sport"` appear under the Sport heading, and `tab` decides which sport
+page they're on. Give a new section a new `tab` name and it gets its own button.
 Within a section, list feeds in priority order. When two outlets run the same
 story, the first-listed outlet's headline is shown.
 
@@ -54,6 +66,22 @@ python build.py --check https://www.theguardian.com/sport/afl/rss
 This prints how many stories the feed has, the date of the newest one, and its
 first few headlines. A feed whose newest story is weeks old has been abandoned,
 even if it still loads.
+
+### Sources that aren't RSS feeds
+
+- **ESPN** no longer publishes working RSS feeds, so its news comes from ESPN's
+  own data instead: add `format = "espn"` to the feed (see the NFL section).
+- **Al Jazeera** has one feed for everything; `category = "News"` or
+  `category = "Sport"` picks out one kind of story.
+
+### Scores and tables
+
+Each `[[scores]]` block in `sources.toml` adds one box to a sport page. Tables,
+results and F1 data come from ESPN, the AFL ladder from
+[Squiggle](https://api.squiggle.com.au/), and cricket scores from Cricinfo.
+ESPN's data isn't an official public service and could change without notice;
+if one box breaks, the page shows a "Couldn't load" note for it and everything
+else carries on.
 
 ## The emblem
 
