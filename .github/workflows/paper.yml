@@ -1,0 +1,50 @@
+name: Print the paper
+
+on:
+  schedule:
+    # Editions are 6am, 12pm and 6pm Melbourne time. GitHub schedules run in UTC,
+    # so each edition is listed for both AEDT (UTC+11) and AEST (UTC+10), ten
+    # minutes early to allow for GitHub's queue delays. build.py works out which
+    # edition each run belongs to; the extra run each time just refreshes it.
+    - cron: "50 18,19 * * *"   # morning
+    - cron: "50 0,1 * * *"     # afternoon
+    - cron: "50 6,7 * * *"     # evening
+  workflow_dispatch:           # "Run workflow" button for an on-demand edition
+  push:                        # every push: run the tests and a trial build, no publish
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: paper
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run tests
+        run: python -m unittest discover -s tests
+      - name: Fetch feeds and build the page
+        run: python build.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publish:
+    needs: build
+    if: github.event_name != 'push' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

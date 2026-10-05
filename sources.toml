@@ -1,0 +1,85 @@
+# The Daily Paper: sources and settings.
+#
+# To add a source, copy a [[section.feed]] block under the section it belongs to.
+# Feeds are listed in priority order: when two outlets run the same story, the
+# first one listed becomes the headline and the others appear as "Also covered by".
+#
+# Optional per-feed filters (case-insensitive, matched against headline + summary):
+#   include = ["NRL", "rugby league"]   keep only stories mentioning one of these
+#   exclude = ["live blog", "quiz"]     drop stories mentioning any of these
+
+[paper]
+name = "The Yarra Ledger"
+location = "Melbourne"
+timezone = "Australia/Melbourne"
+latitude = -37.81
+longitude = 144.96
+bom_url = "https://www.bom.gov.au/location/australia/victoria/central/bvic_pt042-melbourne"
+max_age_hours = 36        # ignore stories older than this
+
+
+# ---------------------------------------------------------------- News (front page)
+
+[[section]]
+title = "News"
+group = "front"
+limit = 10
+
+  [[section.feed]]
+  name = "ABC"
+  url = "https://www.abc.net.au/news/feed/51120/rss.xml"   # ABC Top Stories
+
+  [[section.feed]]
+  name = "SBS"
+  url = "https://www.sbs.com.au/news/feed"
+
+  [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/world/rss"
+
+
+# ---------------------------------------------------------------- Sport
+
+[[section]]
+title = "Rugby League"
+group = "Sport"
+limit = 5
+
+  [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/sport/nrl/rss"
+
+  [[section.feed]]
+  name = "ABC Sport"
+  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
+  include = ["NRL", "rugby league", "State of Origin", "Kangaroos", "Pacific Championships"]
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/rugby-league/rss.xml"
+
+[[section]]
+title = "Premier League"
+group = "Sport"
+limit = 5
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml"
+
+  [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/football/premierleague/rss"
+
+[[section]]
+title = "Manchester United"
+group = "Sport"
+limit = 5
+
+  [[section.feed]]
+  name = "BBC Sport"
+  url = "https://feeds.bbci.co.uk/sport/football/teams/manchester-united/rss.xml"
+
+  [[section.feed]]
+  name = "Guardian"
+  url = "https://www.theguardian.com/football/manchester-united/rss"

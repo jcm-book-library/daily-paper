@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Sample feed for tests and local previews</title>
+<item><title>Budget update flags slower growth as global trade cools</title><link>https://example.org/1</link>
+<description>Treasury revises its forecasts down and points to weaker demand from major trading partners.</description><pubDate>Mon, 05 Oct 2026 06:41:00 GMT</pubDate></item>
+<item><title>Melbourne rental vacancy rate edges up for third straight month</title><link>https://example.org/2</link>
+<description>Agents say inner-city supply is improving, but outer suburbs remain tight.</description><pubDate>Mon, 05 Oct 2026 00:38:00 GMT</pubDate></item>
+<item><title>NRL season attendance figures set a new record</title><link>https://example.org/3</link>
+<description>More than four million fans went through the gates across the regular season and finals.</description><pubDate>Mon, 05 Oct 2026 06:20:00 GMT</pubDate></item>
+<item><title>Daylight saving is here: what changed overnight</title><link>https://example.org/4</link>
+<description>Clocks went forward an hour on Sunday.</description><pubDate>Sun, 04 Oct 2026 18:30:00 GMT</pubDate></item>
+</channel></rss>
