@@ -525,11 +525,30 @@ def collect(config: dict, now: datetime, fetcher=fetch) -> tuple[list[tuple[dict
     return sections, weather, failures
 
 
+def check_feeds(urls: list[str]) -> int:
+    """Report whether each address is a working feed and how fresh it is."""
+    for url in urls:
+        try:
+            items = parse_feed(fetch(url))
+        except Exception as exc:  # noqa: BLE001
+            print(f"BROKEN  {url}\n        {exc}")
+            continue
+        dated = sorted((i["ts"] for i in items if i["ts"]), reverse=True)
+        newest = dated[0].strftime("%a %-d %b %Y %H:%M UTC") if dated else "no dates"
+        print(f"OK      {url}\n        {len(items)} stories, newest {newest}")
+        for item in items[:3]:
+            print(f"        - {item['title']}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=ROOT / "sources.toml", type=Path)
     parser.add_argument("--out", default=ROOT / "site" / "index.html", type=Path)
+    parser.add_argument("--check", nargs="+", metavar="URL", help="test feed addresses instead of building")
     args = parser.parse_args()
+    if args.check:
+        return check_feeds(args.check)
 
     config = load_config(args.config)
     now = datetime.now(ZoneInfo(config["paper"]["timezone"]))
