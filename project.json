@@ -1,0 +1,10 @@
+{
+  "name": "The Overnight Sentinel",
+  "repo": "daily-paper",
+  "purpose": "Builds a newspaper-style front page of news, sport and weather headlines three times a day and publishes it to GitHub Pages.",
+  "family": "Life",
+  "stage": "Working",
+  "live": "https://jcm-book-library.github.io/daily-paper/",
+  "tags": [],
+  "updated": "2026-10-19"
+}
