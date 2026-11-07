@@ -34,6 +34,49 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Fetch feeds and build the page
         run: python build.py
+      - name: TEMP real-browser radar check
+        run: |
+          python -m http.server 8000 --directory site >/dev/null 2>&1 &
+          mkdir /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+          cat > check.js <<'EOF'
+          const { chromium } = require('playwright');
+          (async () => {
+            const b = await chromium.launch();
+            const out = {};
+            for (const [name, vp] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 800 }]]) {
+              const page = await (await b.newContext({ viewport: vp })).newPage();
+              const seen = { rv: {}, osm: {}, api: null, failed: [], rvSizes: [], console: [] };
+              page.on('response', r => {
+                const u = r.url();
+                if (u.startsWith('https://api.rainviewer.com')) seen.api = { status: r.status(), cors: r.headers()['access-control-allow-origin'] };
+                else if (u.startsWith('https://tilecache.rainviewer.com')) { seen.rv[r.status()] = (seen.rv[r.status()] || 0) + 1; seen.rvSizes.push(+(r.headers()['content-length'] || 0)); }
+                else if (u.startsWith('https://tile.openstreetmap.org')) seen.osm[r.status()] = (seen.osm[r.status()] || 0) + 1;
+              });
+              page.on('requestfailed', r => seen.failed.push(r.url().slice(0, 80) + ' ' + r.failure().errorText));
+              page.on('console', m => { if (m.type() === 'error') seen.console.push(m.text().slice(0, 140)); });
+              page.on('pageerror', e => seen.console.push('PAGEERROR ' + e.message));
+              await page.goto('http://localhost:8000/');
+              await page.locator('.radar').scrollIntoViewIfNeeded();
+              await page.waitForSelector('.radar.is-live, .radar.is-off', { timeout: 20000 }).catch(() => {});
+              await page.waitForTimeout(6000);
+              const info = await page.evaluate(() => {
+                const r = document.querySelector('.radar'), imgs = [...r.querySelectorAll('.radar-stage img')];
+                const labels = [];
+                return { classes: r.className, label: r.querySelector('.radar-time').textContent, tiles: imgs.length, decoded: imgs.filter(i => i.complete && i.naturalWidth > 0).length,
+                         frames: r.querySelectorAll('.radar-frame').length, mapW: Math.round(r.querySelector('.radar-map').getBoundingClientRect().width),
+                         fonts: [document.fonts.check('400 16px Roboto'), document.fonts.check('600 20px "Roboto Condensed"'), document.fonts.check('400 40px "Grenze Gotisch"')],
+                         overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth, tabs: [...document.querySelectorAll('.tabs button')].map(x => x.textContent) };
+              });
+              const sizes = seen.rvSizes.sort((a, b) => a - b);
+              out[name] = { info, api: seen.api, rainviewerTiles: seen.rv, rvTileBytes: { min: sizes[0], median: sizes[Math.floor(sizes.length / 2)], max: sizes[sizes.length - 1] },
+                            osmTiles: seen.osm, failedRequests: seen.failed.slice(0, 5), consoleErrors: seen.console.slice(0, 5) };
+            }
+            console.log('RADAR_CHECK ' + JSON.stringify(out, null, 1));
+            await b.close();
+          })();
+          EOF
+          node check.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
