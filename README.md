@@ -19,11 +19,25 @@ Stories feed. Those stories aren't repeated in the News column below.
 **BOM weather warnings** for Melbourne (severe storms, fire danger, extreme heat)
 appear at the top of Argus Watch while they're current.
 
-**Sport** has a page for each code: Football, Rugby League, AFL, Cricket,
-Formula 1, Motorsport, NFL and World. Tap a button to switch; the page remembers
-the last one you opened. Each sport page shows its headlines plus a
-**Scores & tables** area (league tables, results, fixtures, F1 standings and
-live cricket scores).
+**Sport** has four pages: Football, Rugby League, Motorsport (Formula 1 plus other
+series) and General Sport (AFL, cricket, NFL and world sport). Tap a button to
+switch; the page remembers the last one you opened. Each page shows its headlines
+plus a **Scores & tables** area (league tables, results, fixtures, F1 standings and
+live cricket scores). A story that two columns on the same page would both carry is
+shown once.
+
+**Rain radar** sits under the seven-day forecast. It loads in your browser when you
+open the page, so it is current even though the page is only rebuilt three times a
+day: [RainViewer](https://www.rainviewer.com/) radar over an OpenStreetMap map, the
+last hour as a loop, with Pause / Play and a link to BOM's own radar. If the radar
+can't load, the map is replaced by the BOM link. The map location and zoom come from
+`latitude`, `longitude` and `radar_zoom` under `[paper]` in `sources.toml`; remove
+`radar_url` there to drop the radar.
+
+**The look** is black and white (white paper and black ink, and the reverse in dark
+mode). Body text is Roboto, headings are Roboto Condensed, and the nameplate and
+Argus Watch use a light blackletter (Grenze Gotisch). All the colours and fonts are
+at the top of `templates/page.css`. The radar itself is the one coloured thing.
 
 Every link opens in a new tab, so the paper stays open behind it.
 
@@ -44,7 +58,9 @@ Everything lives in `sources.toml`. To add a feed, copy a `[[section.feed]]` blo
 
 To add a new sport or topic, copy a whole `[[section]]` block. Sections with
 `group = "Sport"` appear under the Sport heading, and `tab` decides which sport
-page they're on. Give a new section a new `tab` name and it gets its own button.
+page they're on. Give a new section a new `tab` name and it gets its own button, or
+reuse a tab name to put it on that page (the page lays out two columns, three, or
+two by two when there are four).
 Within a section, list feeds in priority order. When two outlets run the same
 story, the first-listed outlet's headline is shown.
 

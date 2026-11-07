@@ -513,13 +513,24 @@ def pick_lead(stories: list[Story]) -> Story:
 
 
 def render_section(section: dict, stories: list[Story], editions: list[Edition], tz: ZoneInfo,
-                   skip: dict[str, set[int]] | None = None) -> str:
-    """One block per edition. `skip` maps an edition name to ids of stories shown elsewhere."""
+                   skip: dict[str, set[int]] | None = None, shown: dict[str, set[str]] | None = None) -> str:
+    """One block per edition.
+
+    `skip` maps an edition name to ids of stories shown elsewhere (Argus Watch). `shown` maps an
+    edition name to the story links already shown by earlier sections of the same page; it is
+    updated here, so a story that two sections would both carry appears only in the first.
+    """
     blocks = []
     for ed in editions:
-        hide = (skip or {}).get(ed.name, set())
+        hide = set((skip or {}).get(ed.name, ()))
+        seen = shown.setdefault(ed.name, set()) if shown is not None else set()
+        hide |= {id(s) for s in stories if s.link in seen or any(link in seen for _, link in s.also)}
         visible = [s for s in stories if id(s) not in hide]
         chosen = stories_for_edition(visible, ed, section.get("limit", 6))
+        if shown is not None:
+            for s in chosen:
+                seen.add(s.link)
+                seen.update(link for _, link in s.also)
         hidden = "" if ed is editions[-1] else " hidden"
         if not chosen:
             body = '<p class="empty">Nothing new from these sources lately.</p>'
@@ -542,11 +553,34 @@ def source_names(section: dict) -> str:
     return " · ".join(esc(n) for n in names)
 
 
+def render_radar(paper: dict) -> str:
+    """The live rain radar card. Its map is filled in by templates/radar.js in the visitor's browser."""
+    url = paper.get("radar_url")
+    if not url:
+        return ""
+    return (
+        f'<div class="radar" data-lat="{paper["latitude"]}" data-lon="{paper["longitude"]}" '
+        f'data-zoom="{paper.get("radar_zoom", 7)}" data-tz="{esc(paper["timezone"])}">'
+        '<div class="radar-head"><h3>Rain radar</h3><span class="radar-time"></span></div>'
+        f'<div class="radar-map" role="img" aria-label="Animated rain radar map of {esc(paper["location"])}">'
+        '<div class="radar-wait">Loading radar…</div><div class="radar-stage"></div><span class="radar-pin"></span></div>'
+        '<noscript><p class="radar-msg" style="display:block">The live radar needs JavaScript. Use the BOM link below.</p></noscript>'
+        '<p class="radar-msg">The live radar could not be loaded. Use the BOM link below.</p>'
+        f'<div class="radar-foot"><button type="button" class="radar-play">Pause</button>'
+        f'<a href="{esc(url)}" {NEW_TAB}>Open BOM radar</a></div>'
+        f'<p class="radar-credit">Radar © <a href="https://www.rainviewer.com/" {NEW_TAB}>RainViewer</a> · '
+        f'Map © <a href="https://www.openstreetmap.org/copyright" {NEW_TAB}>OpenStreetMap</a> contributors</p>'
+        '</div>'
+    )
+
+
 def render_weather(w: dict | None, paper: dict) -> tuple[str, str]:
     bom = esc(paper["bom_url"])
+    radar = render_radar(paper)
     if not w:
         ear = '<div class="ear-label">Weather</div><div>Forecast unavailable</div>'
-        panel = f'<p class="empty">The forecast couldn\'t be loaded this edition.</p><div class="wx-links"><a href="{bom}" {NEW_TAB}>Forecast &amp; warnings at BOM</a></div>'
+        panel = (f'<p class="empty">The forecast couldn\'t be loaded this edition.</p>{radar}'
+                 f'<div class="wx-links"><a href="{bom}" {NEW_TAB}>Forecast &amp; warnings at BOM</a></div>')
         return ear, panel
     t = w["today"]
     ear = (f'<div class="ear-label">{esc(paper["location"])} now</div>'
@@ -571,7 +605,7 @@ def render_weather(w: dict | None, paper: dict) -> tuple[str, str]:
         f'<div class="min">Min {t["min"]}° · sunrise {w["sunrise"]}</div></div></div>'
         f'<div class="facts"><div>Rain chance<b>{t["rain"]}%</b></div><div>Wind<b>{esc(w["wind"])}</b></div>'
         f'<div>UV<b>{esc(w["uv"])}</b></div></div>'
-        f'<table class="week" aria-label="Seven-day forecast"><tbody>{rows}</tbody></table>{note}'
+        f'<table class="week" aria-label="Seven-day forecast"><tbody>{rows}</tbody></table>{note}{radar}'
         f'<div class="wx-links"><a href="{bom}" {NEW_TAB}>Full forecast &amp; warnings at BOM</a><span>Forecast data: Open-Meteo</span></div>'
     )
     return ear, panel
@@ -612,15 +646,23 @@ def render_group(name: str, members: list[tuple[dict, list[Story]]], boxes: list
                  editions: list[Edition], tz: ZoneInfo) -> str:
     """A group of sections. When sections name a `tab`, each tab becomes its own page with a button."""
     def columns(items: list[tuple[dict, list[Story]]]) -> str:
-        return "".join(
-            f'<section aria-label="{esc(s["title"])}"><h3 class="sub">{esc(s["title"])}</h3>'
-            f'<p class="sub-srcs">{source_names(s)}</p>{render_section(s, st, editions, tz)}</section>'
-            for s, st in items)
+        """The sections of one page, in equal columns (two rows of two when there are four)."""
+        shown: dict[str, set[str]] = {}  # a story two sections would both carry appears only in the first
+        n = len(items)
+        per_row = n if n <= 3 else 2 if n == 4 else 3
+        solo = " solo" if n == 1 else ""
+        out = []
+        for i, (s, st) in enumerate(items):
+            classes = " ".join(c for c, on in (("rule", i % per_row != 0), ("below", i >= per_row)) if on)
+            attr = f' class="{classes}"' if classes else ""
+            out.append(f'<section{attr} aria-label="{esc(s["title"])}"><h3 class="sub">{esc(s["title"])}</h3>'
+                       f'<p class="sub-srcs">{source_names(s)}</p>{render_section(s, st, editions, tz, shown=shown)}</section>')
+        return f'<div class="group-grid{solo}" style="--cols:{per_row}">{"".join(out)}</div>'
 
     head = f'<div class="sect-head"><h2>{esc(name)}</h2></div>'
     tabs = list(dict.fromkeys(s.get("tab") for s, _ in members if s.get("tab")))
     if not tabs:
-        return f'<div class="group">{head}<div class="group-grid">{columns(members)}</div></div>'
+        return f'<div class="group">{head}{columns(members)}</div>'
     buttons, panels = [], []
     for i, tab in enumerate(tabs):
         slug = re.sub(r"[^a-z0-9]+", "-", tab.lower()).strip("-")
@@ -631,18 +673,17 @@ def render_group(name: str, members: list[tuple[dict, list[Story]]], boxes: list
         buttons.append(f'<button type="button" role="tab" id="tab-{slug}" data-tab="{slug}" '
                        f'aria-selected="{"true" if i == 0 else "false"}">{esc(tab)}</button>')
         panels.append(f'<div class="tab-panel" role="tabpanel" data-panel="{slug}" aria-labelledby="tab-{slug}"'
-                      f'{"" if i == 0 else " hidden"}><div class="group-grid" style="--cols:{len(items)}">'
-                      f'{columns(items)}</div>{scores}</div>')
-    return (f'<div class="group tabbed">{head}<div class="tabs" role="tablist" aria-label="{esc(name)}">'
-            f'{"".join(buttons)}</div>{"".join(panels)}</div>')
+                      f'{"" if i == 0 else " hidden"}>{columns(items)}{scores}</div>')
+    return (f'<div class="group tabbed">{head}<div class="tabs" role="tablist" aria-label="{esc(name)}" '
+            f'style="--tabs:{len(tabs)}">{"".join(buttons)}</div>{"".join(panels)}</div>')
 
 
 def favicon_uri(emblem: str) -> str:
-    """The emblem in ink on a paper-coloured tile, as a data: URI for the browser tab."""
-    inner = emblem.split(">", 1)[1].rsplit("</svg>", 1)[0].replace("currentColor", "#17191B")
+    """The emblem in white on a black tile, as a data: URI for the browser tab."""
+    inner = emblem.split(">", 1)[1].rsplit("</svg>", 1)[0].replace("currentColor", "#fff")
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -11 64 64">'
-           '<rect x="0" y="-11" width="64" height="64" rx="12" fill="#ECEDE8"/>'
-           f'<g fill="none" stroke="#17191B" stroke-width="2.4" stroke-linecap="round">{inner}</g></svg>')
+           '<rect x="0" y="-11" width="64" height="64" rx="12" fill="#000"/>'
+           f'<g fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round">{inner}</g></svg>')
     return "data:image/svg+xml," + urllib.parse.quote(re.sub(r"\s+", " ", svg))
 
 
@@ -685,7 +726,7 @@ def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather:
                 top = pick_watch(stories_for_edition(stories, ed, len(stories)), paper.get("watch_limit", 3))
                 skip[ed.name] = {id(s) for s in top}
                 hidden = "" if ed is current else " hidden"
-                blocks.append(f'<div class="feed watch-grid" data-ed="{ed.name}"{hidden}>'
+                blocks.append(f'<div class="feed watch-grid" data-ed="{ed.name}" style="--n:{max(len(top), 1)}"{hidden}>'
                               + "".join(render_watch_story(s, ed, tz) for s in top) + "</div>")
             watch = (f'<section class="watch" aria-label="{esc(watch_title)}"><div class="watch-head">{emblem}'
                      f'<h2>{esc(watch_title)}</h2><span>The stories that matter most right now</span></div>'
@@ -719,6 +760,7 @@ def render_page(config: dict, sections: list[tuple[dict, list[Story]]], weather:
         status=status,
         schedule=", ".join(time(h).strftime("%-I%p").lower() for _, h in EDITIONS),
         css=(ROOT / "templates" / "page.css").read_text(),
+        radar_js=(ROOT / "templates" / "radar.js").read_text() if paper.get("radar_url") else "",
         emblem=emblem,
         watch=watch,
         favicon=favicon_uri(emblem),

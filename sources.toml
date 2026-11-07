@@ -20,6 +20,8 @@ timezone = "Australia/Melbourne"
 latitude = -37.81
 longitude = 144.96
 bom_url = "https://www.bom.gov.au/location/australia/victoria/central/bvic_pt042-melbourne"
+radar_url = "https://www.bom.gov.au/products/IDR023.loop.shtml"   # BOM's Melbourne radar loop
+radar_zoom = 7            # map zoom for the live radar (7 is the closest the free radar data goes)
 max_age_hours = 36        # ignore stories older than this (a section can set its own)
 
 # Argus Watch: a band across the top of the front page for the day's biggest stories.
@@ -140,49 +142,17 @@ max_age_hours = 96
   name = "BBC Sport"
   url = "https://feeds.bbci.co.uk/sport/rugby-league/rss.xml"
 
-# ---------------------------------------------------------------- AFL
-
-[[section]]
-title = "AFL"
-group = "Sport"
-tab = "AFL"
-limit = 6
-max_age_hours = 96
-
-  [[section.feed]]
-  name = "ABC Sport"
-  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
-  include = ["AFL", "Brownlow"]
-
-  [[section.feed]]
-  name = "ESPN"
-  url = "https://site.api.espn.com/apis/site/v2/sports/australian-football/afl/news"
-  format = "espn"
-
-# ---------------------------------------------------------------- Cricket
-
-[[section]]
-title = "Cricket"
-group = "Sport"
-tab = "Cricket"
-limit = 6
-max_age_hours = 96
-
-  [[section.feed]]
-  name = "ABC Sport"
-  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
-  include = ["cricket", "Ashes", "Big Bash", "Sheffield Shield", "Test match", "T20"]
-
-  [[section.feed]]
-  name = "Cricinfo"
-  url = "https://www.espncricinfo.com/rss/content/story/feeds/0.xml"
+# ================================================================ Motorsport page
+#
+# Formula 1 and everything else side by side. A story that appears in both columns
+# is shown once, in the first.
 
 # ---------------------------------------------------------------- Formula 1
 
 [[section]]
 title = "Formula 1"
 group = "Sport"
-tab = "Formula 1"
+tab = "Motorsport"
 limit = 6
 max_age_hours = 96
 
@@ -199,10 +169,10 @@ max_age_hours = 96
   name = "Motorsport.com"
   url = "https://www.motorsport.com/rss/f1/news/"
 
-# ---------------------------------------------------------------- Motorsport
+# ---------------------------------------------------------------- Motorsport: other series
 
 [[section]]
-title = "Motorsport"
+title = "Other Series"
 group = "Sport"
 tab = "Motorsport"
 limit = 6
@@ -221,12 +191,54 @@ max_age_hours = 168       # IndyCar news is sparse out of season; look back a we
   url = "https://site.api.espn.com/apis/site/v2/sports/racing/irl/news"
   format = "espn"
 
+# ================================================================ General Sport page
+#
+# AFL, cricket, NFL and world sport. Add another code by copying one of these
+# sections and giving it tab = "General Sport".
+
+# ---------------------------------------------------------------- AFL
+
+[[section]]
+title = "AFL"
+group = "Sport"
+tab = "General Sport"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "ABC Sport"
+  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
+  include = ["AFL", "Brownlow"]
+
+  [[section.feed]]
+  name = "ESPN"
+  url = "https://site.api.espn.com/apis/site/v2/sports/australian-football/afl/news"
+  format = "espn"
+
+# ---------------------------------------------------------------- Cricket
+
+[[section]]
+title = "Cricket"
+group = "Sport"
+tab = "General Sport"
+limit = 6
+max_age_hours = 96
+
+  [[section.feed]]
+  name = "ABC Sport"
+  url = "https://www.abc.net.au/news/feed/45924/rss.xml"
+  include = ["cricket", "Ashes", "Big Bash", "Sheffield Shield", "Test match", "T20"]
+
+  [[section.feed]]
+  name = "Cricinfo"
+  url = "https://www.espncricinfo.com/rss/content/story/feeds/0.xml"
+
 # ---------------------------------------------------------------- NFL
 
 [[section]]
 title = "NFL"
 group = "Sport"
-tab = "NFL"
+tab = "General Sport"
 limit = 6
 max_age_hours = 96
 
@@ -240,7 +252,7 @@ max_age_hours = 96
 [[section]]
 title = "World Sport"
 group = "Sport"
-tab = "World"
+tab = "General Sport"
 limit = 6
 max_age_hours = 96
 
@@ -248,7 +260,6 @@ max_age_hours = 96
   name = "Al Jazeera"
   url = "https://www.aljazeera.com/xml/rss/all.xml"
   category = "Sport"
-
 
 # ================================================================ Scores & tables
 #
@@ -269,7 +280,7 @@ more_label = "Full table"
 
 [[scores]]
 tab = "Football"
-title = "Premier League"
+title = "Premier League games"
 kind = "espn_scores"
 url = "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard"
 rows = 6
@@ -286,13 +297,13 @@ more_label = "Full ladder"
 
 [[scores]]
 tab = "Rugby League"
-title = "NRL"
+title = "NRL games"
 kind = "espn_scores"
 url = "https://site.api.espn.com/apis/site/v2/sports/rugby-league/3/scoreboard"
 rows = 4
 
 [[scores]]
-tab = "AFL"
+tab = "General Sport"
 title = "AFL ladder"
 kind = "squiggle_table"
 url = "https://api.squiggle.com.au/?q=standings"
@@ -301,15 +312,15 @@ more_url = "https://www.afl.com.au/ladder"
 more_label = "Full ladder"
 
 [[scores]]
-tab = "AFL"
-title = "AFL"
+tab = "General Sport"
+title = "AFL games"
 kind = "espn_scores"
 url = "https://site.api.espn.com/apis/site/v2/sports/australian-football/afl/scoreboard"
 rows = 4
 
 [[scores]]
-tab = "Cricket"
-title = "Scores"
+tab = "General Sport"
+title = "Cricket scores"
 kind = "cricket_live"
 url = "https://static.espncricinfo.com/rss/livescores.xml"
 rows = 8
@@ -322,13 +333,13 @@ more_url = "https://www.espncricinfo.com/live-cricket-score"
 more_label = "All live scores"
 
 [[scores]]
-tab = "Formula 1"
+tab = "Motorsport"
 title = "Race weekend"
 kind = "espn_race"
 url = "https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard"
 
 [[scores]]
-tab = "Formula 1"
+tab = "Motorsport"
 title = "Drivers' championship"
 kind = "espn_table"
 url = "https://site.api.espn.com/apis/v2/sports/racing/f1/standings"
@@ -338,7 +349,7 @@ name_header = "Driver"
 columns = [["Pts", "championshipPts"]]
 
 [[scores]]
-tab = "Formula 1"
+tab = "Motorsport"
 title = "Constructors' championship"
 kind = "espn_table"
 url = "https://site.api.espn.com/apis/v2/sports/racing/f1/standings"
@@ -348,7 +359,7 @@ name_header = "Team"
 columns = [["Pts", "points"]]
 
 [[scores]]
-tab = "NFL"
+tab = "General Sport"
 title = "NFL this week"
 kind = "espn_scores"
 url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
