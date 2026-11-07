@@ -1,5 +1,6 @@
 """Offline tests: run with `python -m unittest` from the repo root."""
 import json
+import re
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -166,6 +167,59 @@ class ScoresTests(unittest.TestCase):
                          ["Severe Thunderstorm Warning for people in Central and North Central Forecast Districts"])
 
 
+class SectionTests(unittest.TestCase):
+    def test_a_story_shared_by_two_sections_of_one_page_appears_once(self):
+        editions = build.editions_for(datetime(2026, 10, 5, 18, 5, tzinfo=MEL))[-1:]
+        shared = story("Same story that both columns would otherwise carry", source="Motorsport.com")
+        second_only = story("Only the second column has this story", source="Speedcafe")
+        seen = {}
+        first = build.render_section({"limit": 5}, [shared], editions, MEL, shown=seen)
+        second = build.render_section({"limit": 5}, [shared, second_only], editions, MEL, shown=seen)
+        self.assertIn("Same story that both columns", first)
+        self.assertNotIn("Same story that both columns", second)
+        self.assertIn("Only the second column", second)
+
+    def test_without_the_page_tracker_nothing_is_hidden(self):
+        editions = build.editions_for(datetime(2026, 10, 5, 18, 5, tzinfo=MEL))[-1:]
+        shared = story("Same story that both columns would otherwise carry")
+        self.assertIn("Same story", build.render_section({"limit": 5}, [shared], editions, MEL))
+        self.assertIn("Same story", build.render_section({"limit": 5}, [shared], editions, MEL))
+
+
+class LookTests(unittest.TestCase):
+    """The paper is black and white; the radar map is the one place colour is allowed."""
+
+    @staticmethod
+    def grey(r, g, b):
+        return r == g == b
+
+    def test_stylesheet_has_only_greys(self):
+        css = (build.ROOT / "templates" / "page.css").read_text()
+        for hex_ in re.findall(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b", css):
+            full = hex_ * 2 if len(hex_) == 3 else hex_
+            if len(hex_) == 3:
+                full = "".join(c * 2 for c in hex_)
+            r, g, b = (int(full[i:i + 2], 16) for i in (0, 2, 4))
+            self.assertTrue(self.grey(r, g, b), f"#{hex_} is not a grey")
+        for r, g, b in re.findall(r"rgba?\((\d+),\s*(\d+),\s*(\d+)", css):
+            self.assertTrue(self.grey(int(r), int(g), int(b)), f"rgb({r},{g},{b}) is not a grey")
+        self.assertNotIn("--flag", css)
+
+    def test_tab_icon_is_black_and_white(self):
+        icon = build.urllib.parse.unquote(build.favicon_uri((build.ROOT / "templates" / "emblem.svg").read_text()))
+        self.assertEqual(set(re.findall(r"#[0-9a-fA-F]{3,6}", icon)), {"#000", "#fff"})
+
+    def test_fonts(self):
+        page = (build.ROOT / "templates" / "page.html").read_text()
+        for family in ("Grenze+Gotisch:wght@400", "Roboto:wght@400;500;700", "Roboto+Condensed:wght@500;600"):
+            self.assertIn(family, page)
+        for gone in ("Source+Serif", "Libre+Franklin", "UnifrakturMaguntia"):
+            self.assertNotIn(gone, page)
+
+    def test_radar_card_is_omitted_without_a_radar_link(self):
+        self.assertEqual(build.render_radar({"latitude": -37.81, "longitude": 144.96, "timezone": "Australia/Melbourne", "location": "Melbourne"}), "")
+
+
 class EditionTests(unittest.TestCase):
     def test_evening(self):
         eds = build.editions_for(datetime(2026, 10, 5, 18, 5, tzinfo=MEL))
@@ -246,9 +300,27 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Couldn't load this edition: SBS (News); AFL ladder", page)
         # every story and source link opens in a new tab
         self.assertNotRegex(page, r'<a (?![^>]*target="_blank")[^>]*href="http')
-        # one page per sport, Football first and the rest hidden until chosen
+        # four sport pages, Football first and the rest hidden until chosen
+        self.assertEqual(re.findall(r'data-tab="([^"]+)"', page), ["football", "rugby-league", "motorsport", "general-sport"])
         self.assertIn('data-tab="football" aria-selected="true"', page)
-        self.assertIn('data-panel="nfl" aria-labelledby="tab-nfl" hidden', page)
+        self.assertIn('data-panel="general-sport" aria-labelledby="tab-general-sport" hidden', page)
+        self.assertIn('data-panel="motorsport" aria-labelledby="tab-motorsport" hidden', page)
+        # Rugby League has one section so its stories sit in two columns; General Sport has four, two by two
+        self.assertEqual(page.count('class="group-grid solo"'), 1)
+        general = page.split('data-panel="general-sport"')[1].split("</div><div class=\"scores\">")[0]
+        self.assertEqual(len(re.findall(r'<section( class="[^"]*")? aria-label', general)), 4)
+        self.assertEqual(len(re.findall(r'<section class="rule"', general)), 1)
+        self.assertEqual(len(re.findall(r'<section class="below"', general)), 1)
+        self.assertEqual(len(re.findall(r'<section class="rule below"', general)), 1)
+        self.assertIn('style="--cols:2"', general)
+        for title in ("AFL ladder", "AFL games", "Cricket scores", "NFL this week", "Drivers&#x27; championship"):
+            self.assertIn(title, page)
+        # the live radar: card, BOM link and the data sources it uses
+        self.assertIn('class="radar" data-lat="-37.81" data-lon="144.96" data-zoom="7" data-tz="Australia/Melbourne"', page)
+        self.assertIn('https://www.bom.gov.au/products/IDR023.loop.shtml" target="_blank"', page)
+        self.assertIn("api.rainviewer.com/public/weather-maps.json", page)
+        self.assertIn("RainViewer</a>", page)
+        self.assertIn("OpenStreetMap</a>", page)
         self.assertIn("Premier League table", page)
         self.assertIn("Severe Thunderstorm Warning for people in Central", page)
         self.assertIn("Full forecast &amp; warnings at BOM", page)

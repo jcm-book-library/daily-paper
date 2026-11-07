@@ -8,7 +8,7 @@
 <link rel="icon" href="$favicon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Libre+Franklin:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@400&family=Roboto:wght@400;500;700&family=Roboto+Condensed:wght@500;600&display=swap">
 <style>
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
@@ -19,7 +19,7 @@ $css
 <body>
 <div class="sheet">
   <header class="masthead">
-    <div class="ear">
+    <div class="ear left">
       <div class="ear-label">Today's editions</div>
       <div class="editions" role="group" aria-label="Choose edition">$edition_buttons</div>
     </div>
@@ -77,6 +77,9 @@ document.querySelectorAll(".tabs button[data-tab]").forEach(function (b) {
   b.addEventListener("click", function () { showTab(b.getAttribute("data-tab")); });
 });
 try { var saved = localStorage.getItem("sentinel-sport"); if (saved) showTab(saved); } catch (e) {}
+</script>
+<script>
+$radar_js
 </script>
 </body>
 </html>
